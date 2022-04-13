@@ -92,7 +92,6 @@ generateSlots (_, 0) _ = []
 generateSlots (subj, n) teachers = Lesson (findTeacherForSubject subj teachers) subj : generateSlots (subj, n - 1) teachers
 
 -- implementation assumes that there exists at least one teacher for each subjet
-
 findTeacherForSubject :: String -> [TeacherToSubject] -> String
 findTeacherForSubject subject teachers = 
     head (foldr (\(name, hisSubject) list -> if hisSubject == subject then name : list else list) [] teachers)
