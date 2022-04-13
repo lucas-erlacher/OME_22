@@ -1,13 +1,21 @@
 import System.Environment
-import System.Console.Terminfo (enterStandoutMode)
-import Text.XHtml (sub)
-import Data.ByteString (sort)
 import Data.List (sortBy)
-import qualified Data.ByteString.Lazy
 
+-- types that represent the requirements
 type TeacherToSubjects = (String, [String])
 type ClassToSubjectHours = (String, [(String, Int)])
 type Requirements = ([TeacherToSubjects], [ClassToSubjectHours])
+
+-- types that represent the timetable
+-- a week has 5 days and every school-day consists of ten 1 hour slots (8:00-18:00)
+type SchoolTimetable = [ClassTimetable]
+type ClassTimetable = [Slot]
+data Slot = Lesson Teacher Subject | Free
+instance Show Slot where
+    show Free = "FREE"
+    show (Lesson teacher subject) = " LESSON: " ++ teacher ++ ", " ++ subject
+type Teacher = String
+type Subject = String
 
 main = do
     let requirements = ([("Mr Wirz", ["Math"]),("Mrs Rosenberg", ["Biology", "Design Of Digital Circuits"]),("Mr Erlacher", ["Swiss-German"])],[("1A",[("Math", 4), ("Biology", 1), ("Swiss-German", 2)]),("1B", [("Math", 3), ("Biology", 3), ("Swiss-German", 1)])])
@@ -31,21 +39,11 @@ main = do
     -- )
     print (show (run 100 10 requirements))
 
--- a week has 5 days and every day consists of ten 1 hour slots (8:00-18:00)
-type SchoolTimetable = [ClassTimetable]
-type ClassTimetable = [Slot]
-data Slot = Lesson Teacher Subject | Free
-instance Show Slot where
-    show Free = "FREE"
-    show (Lesson teacher subject) = " LESSON: " ++ teacher ++ ", " ++ subject
-type Teacher = String
-type Subject = String
-
 run :: Int -> Int -> Requirements -> SchoolTimetable
 run numEnts numGens reqs  = head (sortTimetables iterationRes)
     where iterationRes = Main.iterate numGens (generateInitialEnts numEnts reqs)
 
--- helper function
+-- little helper function
 sortTimetables :: [SchoolTimetable] -> [SchoolTimetable]
 sortTimetables = sortBy (\x y -> if fitness x > fitness y then GT else if fitness x == fitness y then EQ else LT)
 
@@ -55,7 +53,7 @@ fitness table = if score == 0 then actualFitness table else (- score)
         score = invalidityScore table
         actualFitness table = 0  -- TODO: just a placeholder for now
 
--- TODO: return a score of how invalid a given timetable is
+-- TODO: return a score of how badly invalid a given timetable is (or 0 if it's valid)
 invalidityScore :: SchoolTimetable -> Int
 invalidityScore _ = 0
 
