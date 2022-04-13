@@ -3,6 +3,33 @@ import System.Console.Terminfo (enterStandoutMode)
 import Text.XHtml (sub)
 import Data.ByteString (sort)
 import Data.List (sortBy)
+import qualified Data.ByteString.Lazy
+
+type TeacherToSubject = (String, String)
+type ClassToSbjectHours = (String, [(String, Int)])
+type Requirements = ([TeacherToSubject], [ClassToSbjectHours])
+
+main = do
+    let requirements = ([("Mr Wirz", "Math"),("Mrs Rosenberg", "Biology"),("Mr Erlacher", "Swiss-German")],[("1A",[("Math", 4), ("Biology", 1), ("Swiss-German", 2)]),("1B", [("Math", 3), ("Biology", 3), ("Swiss-German", 1)])])
+    -- READABLE VERSION:
+    -- (
+    --     [
+    --         ("Mr Wirz", "Math"),
+    --         ("Mrs Rosenberg", "Biology"), 
+    --         ("Mr Erlacher", "Swiss-German")
+    --     ], 
+    --     [
+    --         (
+    --             "1A",
+    --             [("Math", 4), ("Biology", 1), ("Swiss-German", 2)]
+    --         ),
+    --         (
+    --             "1B", 
+    --             [("Math", 3), ("Biology", 3), ("Swiss-German", 1)]
+    --         )
+    --     ]
+    -- )
+    print (show (run 100 10 requirements))
 
 -- a week has 5 days and every day consists of ten 1 hour slots (8:00-18:00)
 type SchoolTimetable = [ClassTimetable]
@@ -15,15 +42,9 @@ type Teacher = String
 type Subject = String
 type Room = String
 
--- first argument is num_entities, second is num_generations
-main = do
-    args <- getArgs  
-    print (show (run (map read args)))
-
-run :: [Int] -> SchoolTimetable
-run [numEnts, numGens] = head (sortTimetables iterationRes)
-    where iterationRes = Main.iterate numGens (generateInitialEnts numEnts)
-run _ = error "incorrect number of command line arguments"
+run :: Int -> Int -> Requirements -> SchoolTimetable
+run numEnts numGens reqs  = head (sortTimetables iterationRes)
+    where iterationRes = Main.iterate numGens (generateInitialEnts numEnts reqs)
 
 -- helper function
 sortTimetables :: [SchoolTimetable] -> [SchoolTimetable]
@@ -31,7 +52,7 @@ sortTimetables = sortBy (\x y -> if fitness x > fitness y then GT else if fitnes
 
 -- TODO
 fitness :: SchoolTimetable -> Int 
-fitness ent = 0
+fitness _ = 0
 
 iterate :: Int -> [SchoolTimetable] -> [SchoolTimetable]
 iterate 0 ents = ents
@@ -49,5 +70,5 @@ mutate :: SchoolTimetable -> SchoolTimetable
 mutate ent = ent
 
 -- TODO
-generateInitialEnts :: Int -> [SchoolTimetable]
-generateInitialEnts n = []
+generateInitialEnts :: Int -> Requirements -> [SchoolTimetable]
+generateInitialEnts _ _ = []
