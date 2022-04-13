@@ -37,7 +37,7 @@ type ClassTimetable = [Slot]
 data Slot = Lesson Teacher Subject | Free
 instance Show Slot where 
     show Free = "FREE"
-    show (Lesson teacher subject) = "LESSON: " ++ teacher ++ ", " ++ subject
+    show (Lesson teacher subject) = " LESSON: " ++ teacher ++ ", " ++ subject
 type Teacher = String
 type Subject = String
 
@@ -75,7 +75,7 @@ mutate :: SchoolTimetable -> SchoolTimetable
 mutate ent = ent
 
 -- very simple implementation: construct initial tables based on ClassToSubjectHours only and if one of them ends up being invalid 
--- (e.g. a teacher teaching 2x at the same time) it'll just get a negative fitness score (and will hence get eliminated soon)
+-- (e.g. a teacher teaching 2 classes at the same time) it'll just get a negative fitness score (and will hence get eliminated soon)
 generateInitialEnts :: Int -> Requirements -> [SchoolTimetable]
 generateInitialEnts 0 _ = []
 generateInitialEnts n reqs = generateInitialEnt reqs : generateInitialEnts (n-1) reqs
