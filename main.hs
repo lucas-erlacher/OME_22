@@ -11,7 +11,7 @@ type Requirements = ([TeacherToSubject], [ClassToSbjectHours])
 
 main = do
     let requirements = ([("Mr Wirz", "Math"),("Mrs Rosenberg", "Biology"),("Mr Erlacher", "Swiss-German")],[("1A",[("Math", 4), ("Biology", 1), ("Swiss-German", 2)]),("1B", [("Math", 3), ("Biology", 3), ("Swiss-German", 1)])])
-    -- READABLE VERSION:
+    -- READABLE VERSION: 
     -- (
     --     [
     --         ("Mr Wirz", "Math"),
