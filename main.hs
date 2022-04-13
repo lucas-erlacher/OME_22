@@ -36,7 +36,7 @@ type SchoolTimetable = [ClassTimetable]
 type ClassTimetable = [Slot]
 data Slot = Lesson Teacher Subject | Free
 instance Show Slot where 
-    show Free = ""
+    show Free = "FREE"
     show (Lesson teacher subject) = "LESSON: " ++ teacher ++ ", " ++ subject
 type Teacher = String
 type Subject = String
