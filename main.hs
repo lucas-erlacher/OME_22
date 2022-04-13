@@ -69,6 +69,6 @@ crossOver ents = ents
 mutate :: SchoolTimetable -> SchoolTimetable
 mutate ent = ent
 
--- TODO
+-- TODO: generate some timetables that respect the requirements
 generateInitialEnts :: Int -> Requirements -> [SchoolTimetable]
 generateInitialEnts _ _ = []
