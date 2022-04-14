@@ -1,6 +1,6 @@
 import System.Environment
 import Data.List (sortBy)
-import System.Random
+-- import System.Random
 
 -- types that represent the requirements
 type TeacherToSubjects = (String, [String])
@@ -13,8 +13,8 @@ type SchoolTimetable = [ClassTimetable]
 type ClassTimetable = [Slot]
 data Slot = Lesson Teacher Subject | Free
 instance Show Slot where
-    show Free = "FREE"
-    show (Lesson teacher subject) = " LESSON: " ++ teacher ++ ", " ++ subject
+    show Free = " FREE"
+    show (Lesson teacher subject) = " LESSON: " ++ teacher ++ " - " ++ subject
 type Teacher = String
 type Subject = String
 
@@ -38,18 +38,18 @@ main = do
     --         )
     --     ]
     -- )
-    print (show (run 100 10 10 requirements)) 
+    print (show (run 100 10 0.1 requirements)) 
     -- PARAMETERS: 
     -- 1st = number of entities per generation
     -- 2nd = number of generations (= iteration of the algorithm) 
-    -- 3rd = degree of elitism (i.e. how many of the top ents from the last generation we want to keep)
+    -- 3rd = percentage of how many ents in the next gen should come from the top ents of the last gen
     
 
-run :: Int -> Int -> Int -> Requirements -> SchoolTimetable
+run :: Int -> Int -> Float -> Requirements -> SchoolTimetable
 run numEnts numGens elitismDegree reqs = head (sortTimetables iterationRes)
-    where iterationRes = Main.iterate numGens elitismDegree (generateInitialEnts numEnts reqs)
+    where iterationRes = Main.iterate numEnts numGens elitismDegree (generateInitialEnts numEnts reqs)
 
--- little helper function
+-- little helper function: sort a list of school timetables by fitness
 sortTimetables :: [SchoolTimetable] -> [SchoolTimetable]
 sortTimetables = sortBy (\x y -> if fitness x > fitness y then GT else if fitness x == fitness y then EQ else LT)
 
@@ -58,7 +58,7 @@ fitness table = if score == 0 then actualFitness table else (- score)
     where
         score = invalidityScore table
 
--- TODO: implement the fitness function of our algorithm 
+-- TODO: implement the fitness function of the algorithm 
 actualFitness :: SchoolTimetable -> Int
 actualFitness table = 0
 
@@ -66,14 +66,16 @@ actualFitness table = 0
 invalidityScore :: SchoolTimetable -> Int
 invalidityScore _ = 0
 
-iterate :: Int -> Int -> Int -> [SchoolTimetable] -> [SchoolTimetable]
-iterate 0 _ _ ents = ents
-iterate n elitismDegree numEnts currEnts = lastGenElites ++ take (numEnts - elitismDegree) (sortTimetables nextGen)  -- elitism happens here
+iterate :: Int -> Int -> Float -> [SchoolTimetable] -> [SchoolTimetable]
+iterate 0 numEnts elitismDegree currEnts = currEnts
+iterate n numEnts elitismDegree currEnts = lastGenElites ++ nextGenSurvivors
     where
-        lastGenElites = take elitismDegree (sortTimetables currEnts)
-        nextGen = Main.iterate (n-1) newEnts
-        newEnts = crossOver mutatedEnts
+        elitismNumber = floor (fromIntegral numEnts * elitismDegree)
+        lastGenElites = take elitismNumber (sortTimetables currEnts)
         mutatedEnts = map mutate currEnts
+        newEnts = crossOver mutatedEnts
+        nextGen = Main.iterate (n-1) numEnts elitismDegree newEnts
+        nextGenSurvivors = take (numEnts - elitismNumber) (sortTimetables nextGen)
 
 -- TODO: perform all the crossing overs that should happen in a generation
 crossOver :: [SchoolTimetable] -> [SchoolTimetable]
@@ -81,26 +83,22 @@ crossOver ents = ents
 
 -- very simple implementation: a mutation is just swapping two slots in the timetable of a class
 mutate :: SchoolTimetable -> SchoolTimetable
-mutate = map decideAndPerform
-
--- decide how many (if any) mutations a given class timetable should recieve (and also perform them)
-decide :: ClassTimetable -> ClassTimetable
-decide = performMuts numMuts   
+mutate = map (performMuts numMuts)
     where
-        numMuts = randomRIO (0, 5)  -- let's say (for now) that an entity can recieve 5 mutations at max
+        numMuts = 0 -- randomRIO (0, 5)
 
--- perform all the mutations that a class timtable should recieve
+-- perform all the mutations that a class timetable should recieve
 performMuts :: Int -> ClassTimetable -> ClassTimetable
 performMuts 0 table = table
-performMuts n table = performMuts n - 1 (performSingleMut table)
+performMuts n table = performMuts (n - 1) (performSingleMut table)
     
-performSingleMut :: ClassTimetable -> Class
+performSingleMut :: ClassTimetable -> ClassTimetable
 performSingleMut = swap ind1 ind2 
     where 
-        ind1 = randomRIO (0, 49)
-        ind2 = randomRIO (0, 49)
+        ind1 = 0 --randomRIO (0, 49)
+        ind2 = 0 --randomRIO (0, 49)
 
--- swaps out the two list elements specified by ind1 and ind2 (zero indexed)
+-- swaps out the two list elements specified by ind1 and ind2
 swap :: Int -> Int -> [a] -> [a]
 swap ind1 ind2 table = firstPart ++ [table !! ind2] ++ middlePart ++ [table !! ind1] ++ endPart
     where
@@ -123,7 +121,7 @@ generateInitialEnt _ = []
 
 -- generated a timetable for a given class
 generateInitialTableForClass :: [(String, Int)] -> [TeacherToSubjects] -> ClassTimetable
-generateInitialTableForClass subjHourList teachers = subjecSlots ++ paddingSlots (50 - length subjectSlots)
+generateInitialTableForClass subjHourList teachers = subjectSlots ++ paddingSlots (50 - length subjectSlots)
     where subjectSlots = foldr (\info list -> generateSlots info teachers ++ list) [] subjHourList
 
 -- generates a list of slots for a given subject
@@ -132,9 +130,9 @@ generateSlots (_, 0) _ = []
 generateSlots (subj, n) teachers = Lesson (findTeacherForSubject subj teachers) subj : generateSlots (subj, n - 1) teachers
 
 -- generates as many free Slots as are needed to fill a school-week (= 50 hours)
-paddingSlots :: Int -> [Slots]
+paddingSlots :: Int -> [Slot]
 paddingSlots 0 = []
-paddingSlots n = Free :: paddingSlots (n - 1)
+paddingSlots n = Free : paddingSlots (n - 1)
 
 -- implementation assumes that there exists at least one teacher for each subjet
 findTeacherForSubject :: String -> [TeacherToSubjects] -> String
