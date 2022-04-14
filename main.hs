@@ -38,11 +38,16 @@ main = do
     --         )
     --     ]
     -- )
-    print (show (run 100 10 requirements))
+    print (show (run 100 10 10 requirements)) 
+    -- PARAMETERS: 
+    -- 1st = number of entities per generation
+    -- 2nd = number of generations (= iteration of the algorithm) 
+    -- 3rd = degree of elitism (i.e. how many of the top ents from the last generation we want to keep)
+    
 
-run :: Int -> Int -> Requirements -> SchoolTimetable
-run numEnts numGens reqs = head (sortTimetables iterationRes)
-    where iterationRes = Main.iterate numGens (generateInitialEnts numEnts reqs)
+run :: Int -> Int -> Int -> Requirements -> SchoolTimetable
+run numEnts numGens elitismDegree reqs = head (sortTimetables iterationRes)
+    where iterationRes = Main.iterate numGens elitismDegree (generateInitialEnts numEnts reqs)
 
 -- little helper function
 sortTimetables :: [SchoolTimetable] -> [SchoolTimetable]
@@ -61,10 +66,12 @@ actualFitness table = 0
 invalidityScore :: SchoolTimetable -> Int
 invalidityScore _ = 0
 
-iterate :: Int -> [SchoolTimetable] -> [SchoolTimetable]
-iterate 0 ents = ents
-iterate n currEnts = Main.iterate (n-1) newEnts
+iterate :: Int -> Int -> Int -> [SchoolTimetable] -> [SchoolTimetable]
+iterate 0 _ _ ents = ents
+iterate n elitismDegree numEnts currEnts = lastGenElites ++ take (numEnts - elitismDegree) (sortTimetables nextGen)  -- elitism happens here
     where
+        lastGenElites = take elitismDegree (sortTimetables currEnts)
+        nextGen = Main.iterate (n-1) newEnts
         newEnts = crossOver mutatedEnts
         mutatedEnts = map mutate currEnts
 
