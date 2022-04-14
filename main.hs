@@ -72,10 +72,10 @@ invalidityScore _ = 0
 -- main loop of the program
 iterate :: Int -> Int -> Float -> [SchoolTimetable] -> [SchoolTimetable]
 iterate 0 numEnts elitismDegree currEnts = currEnts
-iterate n numEnts elitismDegree currEnts = lastGenElites ++ nextGenSurvivors
+iterate n numEnts elitismDegree currEnts = lastGenSurvivors ++ nextGenSurvivors
     where
         elitismNumber = floor (fromIntegral numEnts * elitismDegree)
-        lastGenElites = take elitismNumber (sortTimetables currEnts)
+        lastGenSurvivors = take elitismNumber (sortTimetables currEnts)
         mutatedEnts = map mutate currEnts
         newEnts = crossOver mutatedEnts
         nextGen = Main.iterate (n-1) numEnts elitismDegree newEnts
