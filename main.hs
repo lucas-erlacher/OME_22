@@ -1,3 +1,6 @@
+-- ISSUE: I cant install the random package on my M1 Mac (because of some incompatability).
+--        That's why I commented out all the random things for now. 
+
 import System.Environment
 import Data.List (sortBy)
 -- import System.Random
@@ -41,10 +44,9 @@ main = do
     print (show (run 100 10 0.1 requirements)) 
     -- PARAMETERS: 
     -- 1st = number of entities per generation
-    -- 2nd = number of generations (= iteration of the algorithm) 
-    -- 3rd = percentage of how many ents in the next gen should come from the top ents of the last gen
+    -- 2nd = number of generations (= iterations of the algorithm) 
+    -- 3rd = percentage of how many next gen ents should come from the top ents of the last gen
     
-
 run :: Int -> Int -> Float -> Requirements -> SchoolTimetable
 run numEnts numGens elitismDegree reqs = head (sortTimetables iterationRes)
     where iterationRes = Main.iterate numEnts numGens elitismDegree (generateInitialEnts numEnts reqs)
@@ -53,12 +55,13 @@ run numEnts numGens elitismDegree reqs = head (sortTimetables iterationRes)
 sortTimetables :: [SchoolTimetable] -> [SchoolTimetable]
 sortTimetables = sortBy (\x y -> if fitness x > fitness y then GT else if fitness x == fitness y then EQ else LT)
 
+-- checks whether the table is invalid (in which case it'll get a negative score) and if it's not computes it's actual fitness value
 fitness :: SchoolTimetable -> Int
 fitness table = if score == 0 then actualFitness table else (- score)
     where
         score = invalidityScore table
 
--- TODO: implement the fitness function of the algorithm 
+-- TODO: implement the actual fitness function of the algorithm 
 actualFitness :: SchoolTimetable -> Int
 actualFitness table = 0
 
@@ -66,6 +69,7 @@ actualFitness table = 0
 invalidityScore :: SchoolTimetable -> Int
 invalidityScore _ = 0
 
+-- main loop of the program
 iterate :: Int -> Int -> Float -> [SchoolTimetable] -> [SchoolTimetable]
 iterate 0 numEnts elitismDegree currEnts = currEnts
 iterate n numEnts elitismDegree currEnts = lastGenElites ++ nextGenSurvivors
@@ -109,7 +113,7 @@ swap ind1 ind2 table = firstPart ++ [table !! ind2] ++ middlePart ++ [table !! i
 -- very simple implementation: construct initial tables based on ClassToSubjectHours only and if one of them ends up being invalid 
 -- (e.g. a teacher teaching 2 classes at the same time) it'll just get a negative fitness score (and will hence get eliminated soon).
 -- if this implementation is too slow (which it probably will) we could run FET for a short time (say 20 seconds) and hope that that
--- generates a reasonable starting point which we can then refine with the genetic procedure
+-- generates a reasonable starting point which we can then refine with the genetic procedure. 
 generateInitialEnts :: Int -> Requirements -> [SchoolTimetable]
 generateInitialEnts 0 _ = []
 generateInitialEnts n reqs = generateInitialEnt reqs : generateInitialEnts (n-1) reqs
@@ -119,7 +123,7 @@ generateInitialEnt :: Requirements -> SchoolTimetable
 generateInitialEnt (teachers, x:xs) = generateInitialTableForClass (snd x) teachers : generateInitialEnt (teachers, xs)
 generateInitialEnt _ = []
 
--- generated a timetable for a given class
+-- generates a timetable for a given class
 generateInitialTableForClass :: [(String, Int)] -> [TeacherToSubjects] -> ClassTimetable
 generateInitialTableForClass subjHourList teachers = subjectSlots ++ paddingSlots (50 - length subjectSlots)
     where subjectSlots = foldr (\info list -> generateSlots info teachers ++ list) [] subjHourList
