@@ -55,7 +55,7 @@ main = do
     -- )
 
     -- print (show (run 100 20 5 0.2 requirements)) 
-    print (show (doesLoop 10 100)) 
+    print (show (getRandomIntList 10 100)) 
     -- PARAMETERS: 
     -- 1st = number of entities per generation (needs to be even for current implementation of crossOver)
     -- 2nd = number of generations (= iterations of the algorithm) 
@@ -113,10 +113,10 @@ crossOver [] = []
 crossOver oldEnts = (performSingleCrossOver candidates) ++ (crossOver oldEntsRest)
     where 
         candidates = candidate1 : (candidate2 : [])
-        spot1 = getBoundedRandomInt ((length oldEnts) - 1)
+        spot1 = getRandomInt ((length oldEnts) - 1)
         candidate1 = oldEnts !! spot1 
         firstCandRemoved = (delete candidate1 oldEnts)
-        spot2 = getBoundedRandomInt ((length firstCandRemoved) - 1)
+        spot2 = getRandomInt ((length firstCandRemoved) - 1)
         candidate2 = firstCandRemoved !! spot2
         oldEntsRest = (delete candidate2 firstCandRemoved)
 
@@ -143,8 +143,8 @@ performMuts n table = performMuts (n - 1) (performSingleMut table)
 performSingleMut :: ClassTimetable -> ClassTimetable
 performSingleMut = swap ind1 ind2 
     where 
-        ind1 = getBoundedRandomInt 49
-        ind2 = getBoundedRandomInt 49
+        ind1 = getRandomInt 49
+        ind2 = getRandomInt 49
 
 -- swaps out the two list elements specified by ind1 and ind2
 swap :: Int -> Int -> [a] -> [a]
@@ -214,29 +214,16 @@ sortTimetables = sortBy (\x y -> if fitness x > fitness y then GT else if fitnes
 -- (I have to implement this myself because all of the libraries I tried have compatability issues with my ARM Mac)
 
 -- returns a random integer in [0, first_argument]. 
-getBoundedRandomInt :: Int -> Int
-getBoundedRandomInt max = mod getRandomIntFromTime max
-
--- returns a random integer using system time
-getRandomIntFromTime :: Int
-getRandomIntFromTime = timeAsInt
+getRandomInt :: Int -> Int
+getRandomInt max = boundedInt + waste_time  -- waste a some time in order to ensure that the next Int will be different
     where
-        timeAsInt = (unsafePerformIO (round . (1000000 *) <$> getPOSIXTime)) 
+        boundedInt = mod timeAsInt max
+        timeAsInt = (unsafePerformIO (round . (1000000 *) <$> getPOSIXTime))
         -- THIS IS WHAT THE DOCUMENTATION SAYS ABOUT unsafePerformIO: 
-        -- "For this (unsafePerformIO) to be safe, the IO computation should be free of side effects and independent of its environment."
+        -- "For this to be safe, the IO computation should be free of side effects and independent of its environment."
         -- As far as I'm concerned both these criteria are met so I think it should fine to use usafePerformIO here.
-        sleep = sum (replicate 10000000 0)  -- not pretty but it works: waste some time so that the next random int is different
+        waste_time = ((sum [0..(mod timeAsInt 10000)]) * 0)  -- returns 0
 
--- function intended for testing the quality of my random number generator: indicates whether random int sequence loops
-doesLoop :: Int -> Int -> Bool
-doesLoop len max = elem (head randomList) (tail randomList)
-    where
-        randomList = getRandomIntList len max
-        getRandomIntList len max = rest len max seed
-            where
-                seed = getRandomIntFromTime -- using getRandomIntFromTime (rather than getBoundedRandomInt) because seed should be large
-                rest 0 _ _ = []
-                rest n max lastInt = nextInt : (rest (n - 1) max nextInt) 
-                    where 
-                        nextInt = ((77 * lastInt) + 22) `mod` max 
+getRandomIntList :: Int -> Int -> [Int]
+getRandomIntList len max = map (\x -> getRandomInt max) (replicate len 0) 
 -- ################################################################################################################################
