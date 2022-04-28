@@ -1,5 +1,6 @@
 import Data.List (sortBy, nub, delete)
 import Data.Time.Clock.POSIX
+import System.IO.Unsafe
 
 -- ################################################################################################################################
 -- TYPE DEFINITIONS
@@ -51,7 +52,9 @@ main = do
     --         )
     --     ]
     -- )
-    print (show (run 100 20 5 0.2 requirements)) 
+
+    -- print (show (run 100 20 5 0.2 requirements)) 
+    print (show (test 100 100)) 
     -- PARAMETERS: 
     -- 1st = number of entities per generation (needs to be even for current implementation of crossOver)
     -- 2nd = number of generations (= iterations of the algorithm) 
@@ -201,8 +204,20 @@ findTeacherForSubject subject teachers =
 sortTimetables :: [SchoolTimetable] -> [SchoolTimetable]
 sortTimetables = sortBy (\x y -> if fitness x > fitness y then GT else if fitness x == fitness y then EQ else LT)
 
--- TODO: returns a random integer in [0, first_argument]. 
+-- returns a random integer in [0, first_argument]. 
 -- I have to implement this myself because all of the libraries I tried have compatability issues with my ARM Mac. 
 getRandomInt :: Int -> Int
-getRandomInt max = 0
+-- THIS IS WHAT THE DOCUMENTATION SAYS ABOUT unsafePerformIO: 
+-- "For this (unsafePerformIO) to be safe, the IO computation should be free of side effects and independent of its environment."
+-- As far as I'm concerned both these criteria are met so I think it should fine to use usafePerformIO here.
+getRandomInt max = mod timeAsInt max
+    where timeAsInt = (unsafePerformIO (fmap round getPOSIXTime))
+
+-- function to test the implemetation of getRandomInt: returns the fraction of unique ints that this function generates
+test :: Int -> Int -> Int
+test len max = getRandomIntsList len
+    where 
+        amtUniques = length (nub (getRandomIntsList len))
+        getRandomIntsList 0 = []
+        getRandomIntsList n = (getRandomInt max) : (getRandomIntsList (n - 1)) 
 -- ################################################################################################################################
