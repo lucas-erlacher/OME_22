@@ -1,19 +1,21 @@
--- ISSUE: I cant install the random package on my M1 Mac (because of some incompatability).
+-- ISSUE: I can't install the random package on my M1 Mac (because of some incompatability).
 --        That's why I commented out all the random things for now. 
+
 
 import System.Environment
 import Data.List (sortBy)
 -- import System.Random
 
+
 -- ################################################################################################################################
 -- TYPE DEFINITIONS
 
--- types that represent the requirements
+-- types that represent the requirements of a school
 type TeacherToSubjects = (String, [String])
 type ClassToSubjectHours = (String, [(String, Int)])
 type Requirements = ([TeacherToSubjects], [ClassToSubjectHours])
 
--- types that represent the timetable
+-- types that represent the timetable (of a school-week and of a class-week)
 -- a week has 5 days and every school-day consists of ten 1 hour slots (8:00-18:00)
 type SchoolTimetable = [ClassTimetable]
 type ClassTimetable = [Slot]
@@ -29,7 +31,7 @@ type Subject = String
 
 
 -- ################################################################################################################################
--- MAIN FUNCTION AND MAIN LOOP OF THE ALGO
+-- MAIN FUNCTION AND MAIN LOOP
 
 main = do
     let requirements = ([("Mr Wirz", ["Math"]),("Mrs Rosenberg", ["Biology", "Design Of Digital Circuits"]),("Mr Erlacher", ["Swiss-German"])],[("1A",[("Math", 4), ("Biology", 1), ("Swiss-German", 2)]),("1B", [("Math", 3), ("Biology", 3), ("Swiss-German", 1)])])
@@ -55,20 +57,21 @@ main = do
     -- PARAMETERS: 
     -- 1st = number of entities per generation (needs to be even for current implementation of crossOver)
     -- 2nd = number of generations (= iterations of the algorithm) 
+    -- 3rd = number of mutations that every entity should recieve in a generation
     -- 4th = percentage of how many next gen ents should come from the top ents of the last gen
     
-run :: Int -> Int -> Float -> Requirements -> SchoolTimetable
-run numEnts numGens elitismDegree reqs = head (sortTimetables iterationRes)
-    where iterationRes = Main.iterate numEnts numGens numCross elitismDegree (generateInitialEnts numEnts reqs)
+run :: Int -> Int -> Int -> Float -> Requirements -> SchoolTimetable
+run numEnts numGens numMuts elitismDegree reqs = head (sortTimetables iterationRes)
+    where iterationRes = Main.iterate numEnts numGens numMuts elitismDegree (generateInitialEnts numEnts reqs)
 
--- main loop of the program
-iterate :: Int -> In -> Float -> [SchoolTimetable] -> [SchoolTimetable]
-iterate 0 numEnts elitismDegree currEnts = currEnts
-iterate n numEnts elitismDegree currEnts = lastGenSurvivors ++ nextGenSurvivors
+-- main loop of the program (which runs numGens many times)
+iterate :: Int -> Int -> Int -> Float -> [SchoolTimetable] -> [SchoolTimetable]
+iterate _ 0  _ _ currEnts = currEnts
+iterate numEnts n numMuts elitismDegree currEnts = lastGenSurvivors ++ nextGenSurvivors
     where
         elitismNumber = floor (fromIntegral numEnts * elitismDegree)
         lastGenSurvivors = take elitismNumber (sortTimetables currEnts)
-        mutatedEnts = map mutate currEnts
+        mutatedEnts = map mutate numMuts currEnts
         newEnts = crossOver mutatedEnts
         nextGen = Main.iterate (n-1) numEnts elitismDegree newEnts
         nextGenSurvivors = take (numEnts - elitismNumber) (sortTimetables nextGen)
@@ -142,10 +145,8 @@ performSingleCrossOver ents = [firstNewEnt] ++ [secondNewEnt]
 -- MUTATION
 
 -- very simple implementation: a mutation is just swapping two slots in the timetable of a class
-mutate :: SchoolTimetable -> SchoolTimetable
-mutate = map (performMuts numMuts)
-    where
-        numMuts = 0 -- randomRIO (0, 5)
+mutate :: Int -> SchoolTimetable -> SchoolTimetable
+mutate numMuts = map (performMuts numMuts)
 
 -- perform all the mutations that a class timetable should recieve
 performMuts :: Int -> ClassTimetable -> ClassTimetable
