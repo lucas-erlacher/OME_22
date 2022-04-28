@@ -54,8 +54,7 @@ main = do
     --     ]
     -- )
 
-    -- print (show (run 100 20 5 0.2 requirements)) 
-    print (show (getRandomIntList 10 100)) 
+    print (show (run 100 20 5 0.2 requirements)) 
     -- PARAMETERS: 
     -- 1st = number of entities per generation (needs to be even for current implementation of crossOver)
     -- 2nd = number of generations (= iterations of the algorithm) 
