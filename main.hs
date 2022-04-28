@@ -214,7 +214,7 @@ sortTimetables = sortBy (\x y -> if fitness x > fitness y then GT else if fitnes
 
 -- returns a random integer in [0, first_argument]. 
 getRandomInt :: Int -> Int
-getRandomInt max = boundedInt + waste_time  -- waste a some time in order to ensure that the next Int will be different
+getRandomInt max = boundedInt + waste_time  -- waste some time in order to ensure that the next Int will be different
     where
         boundedInt = mod timeAsInt max
         timeAsInt = (unsafePerformIO (round . (1000000 *) <$> getPOSIXTime))
