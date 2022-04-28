@@ -21,6 +21,7 @@ instance Show Slot where
 instance Eq Slot where  
     (==) Free Free = True
     (==) Free (Lesson _ _) = False
+    (==) (Lesson _ _) Free = False
     (==) (Lesson t1 s1) (Lesson t2 s2) = (t1 == t2) && (s1 == s2)
 type Teacher = String
 type Subject = String
@@ -54,7 +55,7 @@ main = do
     -- )
 
     -- print (show (run 100 20 5 0.2 requirements)) 
-    print (show (test 100 100)) 
+    print (show (getRandomIntList 20 50)) 
     -- PARAMETERS: 
     -- 1st = number of entities per generation (needs to be even for current implementation of crossOver)
     -- 2nd = number of generations (= iterations of the algorithm) 
@@ -203,21 +204,25 @@ findTeacherForSubject subject teachers =
 -- little helper function: sort a list of school timetables by fitness
 sortTimetables :: [SchoolTimetable] -> [SchoolTimetable]
 sortTimetables = sortBy (\x y -> if fitness x > fitness y then GT else if fitness x == fitness y then EQ else LT)
+-- ################################################################################################################################
+
+
+
+
+-- ################################################################################################################################
+-- RANDOM NUMBERS 
+
+-- I have to implement this myself because all of the libraries I tried have compatability issues with my ARM Mac.
 
 -- returns a random integer in [0, first_argument]. 
--- I have to implement this myself because all of the libraries I tried have compatability issues with my ARM Mac. 
 getRandomInt :: Int -> Int
 -- THIS IS WHAT THE DOCUMENTATION SAYS ABOUT unsafePerformIO: 
 -- "For this (unsafePerformIO) to be safe, the IO computation should be free of side effects and independent of its environment."
 -- As far as I'm concerned both these criteria are met so I think it should fine to use usafePerformIO here.
 getRandomInt max = mod timeAsInt max
-    where timeAsInt = (unsafePerformIO (fmap round getPOSIXTime))
-
--- function to test the implemetation of getRandomInt: returns the fraction of unique ints that this function generates
-test :: Int -> Int -> Int
-test len max = getRandomIntsList len
     where 
-        amtUniques = length (nub (getRandomIntsList len))
-        getRandomIntsList 0 = []
-        getRandomIntsList n = (getRandomInt max) : (getRandomIntsList (n - 1)) 
+        timeAsInt = (unsafePerformIO (round . (1000000 *) <$> getPOSIXTime)) 
+        sleep = sum (replicate 10000000 0)  -- not beautiful but it works: waste some time so that the next random int is different
+
+getRandomIntList len max = map (\x -> getRandomInt max) (replicate len 0)
 -- ################################################################################################################################
