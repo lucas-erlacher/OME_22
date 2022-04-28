@@ -221,7 +221,7 @@ getRandomInt max = boundedInt + waste_time  -- waste a some time in order to ens
         -- THIS IS WHAT THE DOCUMENTATION SAYS ABOUT unsafePerformIO: 
         -- "For this to be safe, the IO computation should be free of side effects and independent of its environment."
         -- As far as I'm concerned both these criteria are met so I think it should fine to use usafePerformIO here.
-        waste_time = ((sum [0..(mod timeAsInt 10000)]) * 0)  -- returns 0
+        waste_time = ((sum [0..(mod timeAsInt 10000)]) * 0)  -- returns 0 but wastes some time (which is what we want)
 
 getRandomIntList :: Int -> Int -> [Int]
 getRandomIntList len max = map (\x -> getRandomInt max) (replicate len 0) 
