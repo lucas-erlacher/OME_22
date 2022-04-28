@@ -5,6 +5,9 @@ import System.Environment
 import Data.List (sortBy)
 -- import System.Random
 
+-- ################################################################################################################################
+-- TYPE DEFINITIONS
+
 -- types that represent the requirements
 type TeacherToSubjects = (String, [String])
 type ClassToSubjectHours = (String, [(String, Int)])
@@ -20,6 +23,13 @@ instance Show Slot where
     show (Lesson teacher subject) = " LESSON: " ++ teacher ++ " - " ++ subject
 type Teacher = String
 type Subject = String
+-- ################################################################################################################################
+
+
+
+
+-- ################################################################################################################################
+-- MAIN FUNCTION AND MAIN LOOP OF THE ALGO
 
 main = do
     let requirements = ([("Mr Wirz", ["Math"]),("Mrs Rosenberg", ["Biology", "Design Of Digital Circuits"]),("Mr Erlacher", ["Swiss-German"])],[("1A",[("Math", 4), ("Biology", 1), ("Swiss-German", 2)]),("1B", [("Math", 3), ("Biology", 3), ("Swiss-German", 1)])])
@@ -41,19 +51,34 @@ main = do
     --         )
     --     ]
     -- )
-    print (show (run 100 10 0.1 requirements)) 
+    print (show (run 100 10 5 0.1 requirements)) 
     -- PARAMETERS: 
-    -- 1st = number of entities per generation
+    -- 1st = number of entities per generation (needs to be even for current implementation of crossOver)
     -- 2nd = number of generations (= iterations of the algorithm) 
-    -- 3rd = percentage of how many next gen ents should come from the top ents of the last gen
+    -- 4th = percentage of how many next gen ents should come from the top ents of the last gen
     
 run :: Int -> Int -> Float -> Requirements -> SchoolTimetable
 run numEnts numGens elitismDegree reqs = head (sortTimetables iterationRes)
-    where iterationRes = Main.iterate numEnts numGens elitismDegree (generateInitialEnts numEnts reqs)
+    where iterationRes = Main.iterate numEnts numGens numCross elitismDegree (generateInitialEnts numEnts reqs)
 
--- little helper function: sort a list of school timetables by fitness
-sortTimetables :: [SchoolTimetable] -> [SchoolTimetable]
-sortTimetables = sortBy (\x y -> if fitness x > fitness y then GT else if fitness x == fitness y then EQ else LT)
+-- main loop of the program
+iterate :: Int -> In -> Float -> [SchoolTimetable] -> [SchoolTimetable]
+iterate 0 numEnts elitismDegree currEnts = currEnts
+iterate n numEnts elitismDegree currEnts = lastGenSurvivors ++ nextGenSurvivors
+    where
+        elitismNumber = floor (fromIntegral numEnts * elitismDegree)
+        lastGenSurvivors = take elitismNumber (sortTimetables currEnts)
+        mutatedEnts = map mutate currEnts
+        newEnts = crossOver mutatedEnts
+        nextGen = Main.iterate (n-1) numEnts elitismDegree newEnts
+        nextGenSurvivors = take (numEnts - elitismNumber) (sortTimetables nextGen)
+-- ################################################################################################################################
+
+
+
+
+-- ################################################################################################################################
+-- FITNESS FUNCTION
 
 -- checks whether the table is invalid (in which case it'll get a negative score) and if it's not computes it's actual fitness value
 fitness :: SchoolTimetable -> Int
@@ -68,22 +93,53 @@ actualFitness table = 0
 -- TODO: return a score of how badly invalid a given timetable is (or 0 if it's valid)
 invalidityScore :: SchoolTimetable -> Int
 invalidityScore _ = 0
+-- ################################################################################################################################
 
--- main loop of the program
-iterate :: Int -> Int -> Float -> [SchoolTimetable] -> [SchoolTimetable]
-iterate 0 numEnts elitismDegree currEnts = currEnts
-iterate n numEnts elitismDegree currEnts = lastGenSurvivors ++ nextGenSurvivors
-    where
-        elitismNumber = floor (fromIntegral numEnts * elitismDegree)
-        lastGenSurvivors = take elitismNumber (sortTimetables currEnts)
-        mutatedEnts = map mutate currEnts
-        newEnts = crossOver mutatedEnts
-        nextGen = Main.iterate (n-1) numEnts elitismDegree newEnts
-        nextGenSurvivors = take (numEnts - elitismNumber) (sortTimetables nextGen)
 
--- TODO: perform all the crossing overs that should happen in a generation
+
+
+-- ################################################################################################################################
+-- CROSSING OVER
+
 crossOver :: [SchoolTimetable] -> [SchoolTimetable]
-crossOver ents = ents
+crossOver ents = performAllCrossovers ents [] numCross
+
+-- creates pairs of ents and crosses over the two ents from a pair
+-- assumes that there is an even number of entities in the generation
+performAllCrossovers :: [SchoolTimetable] -> [SchoolTimetable] -> Int -> [SchoolTimetable]
+performAllCrossovers oldEnts newEnts 0 = newEnts
+performAllCrossovers oldEnts newEnts n = performAllCrossovers oldEntsRest (performSingleCrossOver candidates) (n - 2)
+    where 
+        candidates = [candidate1] ++ [candidate2]
+        candidate1 = oldEnts !! spot1
+        spot1 = 0 --randomRIO (0, length oldEnts)
+        firstCandRemoved = (delete spot1 oldEnts)
+        candidate2 = firstCandRemoved !! spot2
+        spot2 = 0 --randomRIO (0, length firstCandRemoved)
+        oldEntsRest = (delete spot2 firstCandRemoved)
+
+-- performs crossing over on a pair of ents (resulting in two new ents). 
+-- current implemtation does not care about whether or not the resulting timetables are valid (which might 
+-- be fine since invalid timetables will simply get a bad fitness score and might hence get eliminated soon). 
+performSingleCrossOver :: [SchoolTimetable] -> [SchoolTimetable]
+performSingleCrossOver ents = [firstNewEnt] ++ [secondNewEnt]
+    where 
+        firstNewEnt = [firstPartEnt1] ++ [secondPartEnt2]
+        firstNewEnt = [firstPartEnt2] ++ [secondPartEnt1]
+        firstPartEnt1 = take crossOverpoint ent1
+        firstPartEnt2 = take crossOverpoint ent2
+        secondPartEnt1 = drop crossOverPoint ent1
+        secondPartEnt2 = drop crossOverPoint ent2
+        ent1 = head ents
+        ent2 = last ents
+        crossOverPoint = 0 --randomRIO (0, 49)
+-- ################################################################################################################################
+
+
+
+
+-- ################################################################################################################################
+-- MUTATION
 
 -- very simple implementation: a mutation is just swapping two slots in the timetable of a class
 mutate :: SchoolTimetable -> SchoolTimetable
@@ -109,6 +165,13 @@ swap ind1 ind2 table = firstPart ++ [table !! ind2] ++ middlePart ++ [table !! i
         firstPart = take ind1 table
         middlePart = drop (ind1 + 1) (take ind2 table)
         endPart = drop (ind2 + 1) table
+-- ################################################################################################################################
+
+
+
+
+-- ################################################################################################################################
+-- GENERATION OF INTIAL ENTITIES
 
 -- very simple implementation: construct initial tables based on ClassToSubjectHours only and if one of them ends up being invalid 
 -- (e.g. a teacher teaching 2 classes at the same time) it'll just get a negative fitness score (and will hence get eliminated soon).
@@ -142,3 +205,14 @@ paddingSlots n = Free : paddingSlots (n - 1)
 findTeacherForSubject :: String -> [TeacherToSubjects] -> String
 findTeacherForSubject subject teachers =
     head (foldr (\(name, hisSubjects) list -> if subject `elem` hisSubjects then name : list else list) [] teachers)
+-- ################################################################################################################################
+
+
+
+-- ################################################################################################################################
+-- HELPER FUNCTIONS 
+
+-- little helper function: sort a list of school timetables by fitness
+sortTimetables :: [SchoolTimetable] -> [SchoolTimetable]
+sortTimetables = sortBy (\x y -> if fitness x > fitness y then GT else if fitness x == fitness y then EQ else LT)
+-- ################################################################################################################################
