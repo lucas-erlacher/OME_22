@@ -1,11 +1,5 @@
--- ISSUE: I can't install the random package on my M1 Mac (because of some incompatability).
---        That's why I commented out all the random things for now. 
-
-
-import System.Environment
-import Data.List (sortBy)
--- import System.Random
-
+import Data.List (sortBy, nub, delete)
+import Data.Time.Clock.POSIX
 
 -- ################################################################################################################################
 -- TYPE DEFINITIONS
@@ -23,6 +17,10 @@ data Slot = Lesson Teacher Subject | Free
 instance Show Slot where
     show Free = " FREE"
     show (Lesson teacher subject) = " LESSON: " ++ teacher ++ " - " ++ subject
+instance Eq Slot where  
+    (==) Free Free = True
+    (==) Free (Lesson _ _) = False
+    (==) (Lesson t1 s1) (Lesson t2 s2) = (t1 == t2) && (s1 == s2)
 type Teacher = String
 type Subject = String
 -- ################################################################################################################################
@@ -53,7 +51,7 @@ main = do
     --         )
     --     ]
     -- )
-    print (show (run 100 10 5 0.1 requirements)) 
+    print (show (run 100 20 5 0.2 requirements)) 
     -- PARAMETERS: 
     -- 1st = number of entities per generation (needs to be even for current implementation of crossOver)
     -- 2nd = number of generations (= iterations of the algorithm) 
@@ -71,9 +69,9 @@ iterate numEnts n numMuts elitismDegree currEnts = lastGenSurvivors ++ nextGenSu
     where
         elitismNumber = floor (fromIntegral numEnts * elitismDegree)
         lastGenSurvivors = take elitismNumber (sortTimetables currEnts)
-        mutatedEnts = map mutate numMuts currEnts
+        mutatedEnts = map (mutate numMuts) currEnts
         newEnts = crossOver mutatedEnts
-        nextGen = Main.iterate (n-1) numEnts elitismDegree newEnts
+        nextGen = Main.iterate numEnts (n-1) numMuts elitismDegree newEnts
         nextGenSurvivors = take (numEnts - elitismNumber) (sortTimetables nextGen)
 -- ################################################################################################################################
 
@@ -104,38 +102,23 @@ invalidityScore _ = 0
 -- ################################################################################################################################
 -- CROSSING OVER
 
-crossOver :: [SchoolTimetable] -> [SchoolTimetable]
-crossOver ents = performAllCrossovers ents [] numCross
-
 -- creates pairs of ents and crosses over the two ents from a pair
 -- assumes that there is an even number of entities in the generation
-performAllCrossovers :: [SchoolTimetable] -> [SchoolTimetable] -> Int -> [SchoolTimetable]
-performAllCrossovers oldEnts newEnts 0 = newEnts
-performAllCrossovers oldEnts newEnts n = performAllCrossovers oldEntsRest (performSingleCrossOver candidates) (n - 2)
+crossOver :: [SchoolTimetable] -> [SchoolTimetable]
+crossOver [] = []
+crossOver oldEnts = (performSingleCrossOver candidates) ++ (crossOver oldEntsRest)
     where 
-        candidates = [candidate1] ++ [candidate2]
-        candidate1 = oldEnts !! spot1
-        spot1 = 0 --randomRIO (0, length oldEnts)
-        firstCandRemoved = (delete spot1 oldEnts)
+        candidates = candidate1 : (candidate2 : [])
+        spot1 = getRandomInt ((length oldEnts) - 1)
+        candidate1 = oldEnts !! spot1 
+        firstCandRemoved = (delete candidate1 oldEnts)
+        spot2 = getRandomInt ((length firstCandRemoved) - 1)
         candidate2 = firstCandRemoved !! spot2
-        spot2 = 0 --randomRIO (0, length firstCandRemoved)
-        oldEntsRest = (delete spot2 firstCandRemoved)
+        oldEntsRest = (delete candidate2 firstCandRemoved)
 
--- performs crossing over on a pair of ents (resulting in two new ents). 
--- current implemtation does not care about whether or not the resulting timetables are valid (which might 
--- be fine since invalid timetables will simply get a bad fitness score and might hence get eliminated soon). 
+-- TODO: performs crossing over on a pair of SchoolTimetables (resulting in two new SchoolTimetables). 
 performSingleCrossOver :: [SchoolTimetable] -> [SchoolTimetable]
-performSingleCrossOver ents = [firstNewEnt] ++ [secondNewEnt]
-    where 
-        firstNewEnt = [firstPartEnt1] ++ [secondPartEnt2]
-        firstNewEnt = [firstPartEnt2] ++ [secondPartEnt1]
-        firstPartEnt1 = take crossOverpoint ent1
-        firstPartEnt2 = take crossOverpoint ent2
-        secondPartEnt1 = drop crossOverPoint ent1
-        secondPartEnt2 = drop crossOverPoint ent2
-        ent1 = head ents
-        ent2 = last ents
-        crossOverPoint = 0 --randomRIO (0, 49)
+performSingleCrossOver ents = ents
 -- ################################################################################################################################
 
 
@@ -156,8 +139,8 @@ performMuts n table = performMuts (n - 1) (performSingleMut table)
 performSingleMut :: ClassTimetable -> ClassTimetable
 performSingleMut = swap ind1 ind2 
     where 
-        ind1 = 0 --randomRIO (0, 49)
-        ind2 = 0 --randomRIO (0, 49)
+        ind1 = getRandomInt 49
+        ind2 = getRandomInt 49
 
 -- swaps out the two list elements specified by ind1 and ind2
 swap :: Int -> Int -> [a] -> [a]
@@ -210,10 +193,16 @@ findTeacherForSubject subject teachers =
 
 
 
+
 -- ################################################################################################################################
 -- HELPER FUNCTIONS 
 
 -- little helper function: sort a list of school timetables by fitness
 sortTimetables :: [SchoolTimetable] -> [SchoolTimetable]
 sortTimetables = sortBy (\x y -> if fitness x > fitness y then GT else if fitness x == fitness y then EQ else LT)
+
+-- TODO: returns a random integer in [0, first_argument]. 
+-- I have to implement this myself because all of the libraries I tried have compatability issues with my ARM Mac. 
+getRandomInt :: Int -> Int
+getRandomInt max = 0
 -- ################################################################################################################################
