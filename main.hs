@@ -1,5 +1,3 @@
--- TODO: change the upper bound of the time-wasting-list to a large constant (so that the time wasting time does not change as we move further away from 1980)
-
 import Data.List (sortBy, nub, delete)
 import Data.Time.Clock.POSIX
 import System.IO.Unsafe
@@ -56,7 +54,7 @@ main = do
     --     ]
     -- )
 
-    print (show (run 100 20 5 0.2 requirements)) 
+    print (show (getRandomIntList 20 100)) 
     -- PARAMETERS: 
     -- 1st = number of entities per generation (needs to be even for current implementation of crossOver)
     -- 2nd = number of generations (= iterations of the algorithm) 
@@ -223,7 +221,7 @@ getRandomInt max = boundedInt + waste_time  -- waste some time in order to ensur
         -- THIS IS WHAT THE DOCUMENTATION SAYS ABOUT unsafePerformIO: 
         -- "For this to be safe, the IO computation should be free of side effects and independent of its environment."
         -- As far as I'm concerned both these criteria are met so I think it should fine to use usafePerformIO here.
-        waste_time = ((sum [0..(mod timeAsInt 10000)]) * 0)  -- returns 0 but wastes some time (which is what we want)
+        waste_time = ((sum [0..10000]) * 0)  -- returns 0 but wastes some time (which is what we want)
 
 getRandomIntList :: Int -> Int -> [Int]
 getRandomIntList len max = map (\x -> getRandomInt max) (replicate len 0) 
