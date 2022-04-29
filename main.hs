@@ -1,3 +1,5 @@
+-- TODO: change the upper bound of the time-wasting-list to a large constant (so that the time wasting time does not change as we move further away from 1980)
+
 import Data.List (sortBy, nub, delete)
 import Data.Time.Clock.POSIX
 import System.IO.Unsafe
