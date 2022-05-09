@@ -1,4 +1,5 @@
 import math
+import random
 
 class Optimizer:
     def __init__(self, params):
@@ -24,8 +25,18 @@ class Optimizer:
     def __generate_initial_ents(reqs):
         pass
 
-    def __mutate(ents):
-        pass    
+    def __mutate(self, ents):
+        mutated_ents = []
+        for ent in ents:
+            rand_num = random.uniform(0, 1)
+            if rand_num <= self.muatation_rate:
+                mutated_ents.append(self.__single_mutation(ent))
+            else:
+                mutated_ents.append(ent)
+        return mutated_ents
+        
+    def __single_mutation(ent):
+        pass
 
     def __cross_over(ents):
         pass  
