@@ -12,7 +12,7 @@ class Optimizer:
         curr_gen_ents = self.__generate_initial_ents(reqs)
         for i in range(self.num_gens):
             old_gen_ents = curr_gen_ents
-            curr_gen_ents = self.__mutate(curr_gen_ents)
+            curr_gen_ents = self.__mutate_all(curr_gen_ents)
             curr_gen_ents = self.__cross_over(curr_gen_ents)
             # elitism 
             num_old_gen = math.floor(self.num_ents * self.elitism_degree)
@@ -25,17 +25,17 @@ class Optimizer:
     def __generate_initial_ents(reqs):
         pass
 
-    def __mutate(self, ents):
+    def __mutate_all(self, ents):
         mutated_ents = []
         for ent in ents:
             rand_num = random.uniform(0, 1)
             if rand_num <= self.muatation_rate:
-                mutated_ents.append(self.__single_mutation(ent))
+                mutated_ents.append(self.__mutate_one(ent))
             else:
                 mutated_ents.append(ent)
         return mutated_ents
-        
-    def __single_mutation(ent):
+
+    def __mutate_one(ent):
         pass
 
     def __cross_over(ents):
