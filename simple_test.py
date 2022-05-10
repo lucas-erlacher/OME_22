@@ -6,4 +6,4 @@ if __name__ == "__main__":
     prefered_subjects = [("Mr. W", ["Math", "Swiss-German"]), ("Mrs. R", ["Biology", "Design Of Digital Circuits"])]
     params = [100, 100, 0.1, 0.1]
     opt = Optimizer(params)
-    print(opt.run(class_reqs, num_slots, prefered_subjects))
+    opt.run(class_reqs, num_slots, prefered_subjects)

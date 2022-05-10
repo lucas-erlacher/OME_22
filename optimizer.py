@@ -1,5 +1,5 @@
 # ASSUMPTIONS:
-# All teachers can in theory teach all subjects
+# All teachers can in theory teach all subjects but are better in some subjects than others (relaxation of "teacher can only teach subjects x,y and z")
 # There are at least as many teachers as there are classes
 
 import math
@@ -18,14 +18,16 @@ class Optimizer:
         for i in range(self.num_gens):
             old_gen_ents = curr_gen_ents
             curr_gen_ents = self.__mutate_all(curr_gen_ents, num_slots, teachers)
-            curr_gen_ents = self.__cross_over_all(curr_gen_ents)
+            curr_gen_ents = self.__cross_over_all(curr_gen_ents, teachers)
             # elitism 
             num_old_gen = math.floor(self.num_ents * self.elitism_degree)
             num_curr_gen = self.num_ents - num_old_gen
             sorted_old_gen = old_gen_ents.sort(key=lambda x: self.__fitness(x))
             sorted_curr_gen = curr_gen_ents.sort(key=lambda x: self.__fitness(x))
             curr_gen_ents = sorted_old_gen[0:num_old_gen] + sorted_curr_gen[0:num_curr_gen]
-        return curr_gen_ents
+            # progress report: print the fitness of the top ent of each gen to see how things are evolving
+            print(curr_gen_ents.sort(key=lambda x: self.__fitness(x))[0])
+        # TODO: plot the evolution of fitness of top, worst and average ent fitness of each gen (gen_number on x-axis)
 
     def __generate_initial_ents(self, reqs, num_slots, teachers):
         num_classes = len(reqs)
@@ -83,10 +85,36 @@ class Optimizer:
         random.shuffle(ents)
         crossed_ents = []
         for i in range(len(ents)/2):
-            crossed_ents.append(self.__cross_over_two([ents[i], ents[i + 1]]))
+            crossed_ents += self.__cross_over_two([ents[i], ents[i + 1]])
 
-    def __cross_over_two(ents):
-        pass
+    def __cross_over_two(self, ents, teachers):
+        parent_1 = ents[0]
+        parent_2 = ents[1]
+        child_1 = []
+        child_2 = []
+        num_classes = len(parent_1)
+        # contruct the children
+        for i in range(num_classes):
+            num = random.uniform(0, 1)
+            if num < 0.5: 
+                child_1.append(parent_1[i])
+                child_2.append(parent_2[i])
+            else:
+                child_1.append(parent_2[i])
+                child_2.append(parent_1[i])
+        child_1 = self.__fix_teacher_conflicts(child_1, teachers)
+        child_2 = self.__fix_teacher_conflicts(child_2, teachers)
+        return [child_1, child_2]
+
+    def __fix_teacher_conflicts(ent, teachers):
+        num_classes = len(ent)
+        num_slots = len(ent[0])
+        for i in range(num_slots):
+            for j in range(num_classes):
+                for k in range(j + 1, num_classes):
+                    # very lazy implementation by me
+                    while ent[i][j][1] == ent[i][k][1]:
+                        ent[i][k][1] = teachers[random.randrange(0, len(teachers) - 1)]
 
     def __fitness(ent):
         pass
