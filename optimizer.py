@@ -1,6 +1,7 @@
 # ASSUMPTIONS:
 # All teachers can in theory teach all subjects but are better in some subjects than others (relaxation of "teacher can only teach subjects x,y and z")
 # There are at least as many teachers as there are classes
+# Teachers are currently being assigned to Free slots but that just means that the teacher has a Free hour too (just like the class)
 
 import math
 import random
@@ -166,3 +167,10 @@ class Optimizer:
                 if subject in prefered_subjects[teacher]:
                     score += 1
         return score
+
+    def __print_ent(self, ent):
+        print("START OF ENT")
+        for school_class in ent:
+            for slot in school_class:
+                print(slot, sep=",")
+            print()
