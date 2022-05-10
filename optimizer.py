@@ -1,7 +1,13 @@
-# ASSUMPTIONS:
+# NOTE:
 # All teachers can in theory teach all subjects but are better in some subjects than others (relaxation of "teacher can only teach subjects x,y and z")
-# There are at least as many teachers as there are classes
-# Teachers are currently being assigned to Free slots but that just means that the teacher has a Free hour too (just like the class)
+# There must be at least as many teachers as there are classes
+# Teachers are currently being assigned to Free slots but that just means that the teacher has a Free hour (just like the class)
+
+# TODO:
+# fitness function: classes dont like gaps, teachers dont like gaps (i.e. Free lessons they are assigned to)
+# fitness function: weigh the different factors (e.g. most important is that teachers teach their good subjects)
+# crossing over: maybe have conflict resoluion also cater to these new factors in the fitness function 
+# (maybe not though because teachers doing their good subjects will be the highes weighed factor)
 
 import math
 import random
@@ -134,7 +140,7 @@ class Optimizer:
                     self.__remove_if_there(ent[k][i][1], leftover_teachers)
                     if ent[j][i][1] == ent[k][i][1]:
                         subj = ent[j][i][0]
-                        # try to resolve the conflic using a teacher that is prefered in this subject
+                        # try to resolve the conflict using a teacher that is prefered in this subject
                         qualified = list(filter(lambda x: subj in prefered_subjects[x], leftover_teachers))
                         if len(qualified) > 0:
                             picked_teacher = qualified[0]
