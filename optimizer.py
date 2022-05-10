@@ -22,11 +22,11 @@ class Optimizer:
             # elitism 
             num_old_gen = math.floor(self.num_ents * self.elitism_degree)
             num_curr_gen = self.num_ents - num_old_gen
-            sorted_old_gen = old_gen_ents.sort(key=lambda x: self.__fitness(x))
-            sorted_curr_gen = curr_gen_ents.sort(key=lambda x: self.__fitness(x))
+            sorted_old_gen = old_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects))
+            sorted_curr_gen = curr_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects))
             curr_gen_ents = sorted_old_gen[0:num_old_gen] + sorted_curr_gen[0:num_curr_gen]
             # progress report: print the fitness of the top ent of each gen to see how things are evolving
-            print(curr_gen_ents.sort(key=lambda x: self.__fitness(x))[0])
+            print(curr_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects))[0])
         # TODO: plot the evolution of fitness of top, worst and average ent fitness of each gen (gen_number on x-axis)
 
     def __generate_initial_ents(self, reqs, num_slots, teachers):
@@ -93,7 +93,7 @@ class Optimizer:
         child_1 = []
         child_2 = []
         num_classes = len(parent_1)
-        # contruct the children
+        # construct the children
         for i in range(num_classes):
             num = random.uniform(0, 1)
             if num < 0.5: 
@@ -116,5 +116,14 @@ class Optimizer:
                     while ent[i][j][1] == ent[i][k][1]:
                         ent[i][k][1] = teachers[random.randrange(0, len(teachers) - 1)]
 
-    def __fitness(ent):
-        pass
+    def __fitness(ent, prefered_subjects):
+        num_classes = len(ent)
+        num_slots = len(ent[0])
+        score = 0
+        for i in range(num_classes):
+            for j in range(num_slots):
+                subject = ent[i][j][0]
+                teacher = ent[i][j][1]
+                if subject in prefered_subjects[teacher]:
+                    score += 1
+        return score
