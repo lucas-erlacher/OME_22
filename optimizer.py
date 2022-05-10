@@ -2,10 +2,9 @@
 # All teachers can in theory teach all subjects but are better in some subjects than others (relaxation of "teacher can only teach subjects x,y and z")
 # There are at least as many teachers as there are classes
 
-# TODO: if possible resolve conflict with a teacher that is good at that subject
-
 import math
 import random
+import matplotlib.pyplot as plt
 
 class Optimizer:
     def __init__(self, params):
@@ -17,6 +16,8 @@ class Optimizer:
     def run(self, reqs, num_slots, prefered_subjects):
         teachers = list(prefered_subjects.keys())
         curr_gen_ents = self.__generate_initial_ents(reqs, num_slots, teachers)
+        top_ents = []
+        worst_ents = []
         for i in range(self.num_gens):
             old_gen_ents = curr_gen_ents
             curr_gen_ents = self.__mutate_all(curr_gen_ents, num_slots, teachers)
@@ -24,14 +25,23 @@ class Optimizer:
             # elitism 
             num_old_gen = math.floor(self.num_ents * self.elitism_degree)
             num_curr_gen = self.num_ents - num_old_gen
-            old_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects))
-            curr_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects))
+            old_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects), reverse=True)
+            curr_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects), reverse=True)
             next_gen_ents = old_gen_ents[0:num_old_gen] + curr_gen_ents[0:num_curr_gen]
             # progress report: print the fitness of the top ent of each gen to see how things are evolving
-            next_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects))
-            print(list(map(lambda x: self.__fitness(x, prefered_subjects), next_gen_ents)))
+            next_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects), reverse=True)
+            top_ents.append(next_gen_ents[0])
+            worst_ents.append(next_gen_ents[-1])
             curr_gen_ents = next_gen_ents
-        # TODO: plot the evolution of fitness of top, worst and average ent fitness of each gen (gen_number on x-axis)
+            # progress report 
+            print("generation " + str(i + 1) + "/" + str(self.num_gens) + " done")
+        # plot the evolution
+        top_ents_fitnesses = list(map(lambda x: self.__fitness(x, prefered_subjects), top_ents))
+        worst_ents_fitnesses = list(map(lambda x: self.__fitness(x, prefered_subjects), worst_ents))
+        plt.plot(top_ents_fitnesses, "g", label="top_ent of gen")
+        plt.plot(worst_ents_fitnesses, "r", label="worst_ent of gen")
+        plt.legend(loc="lower right")
+        plt.show()
 
     def __generate_initial_ents(self, reqs, num_slots, teachers):
         num_classes = len(reqs)
