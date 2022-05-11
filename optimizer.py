@@ -4,10 +4,12 @@
 # Teachers are currently being assigned to Free slots but that just means that the teacher has a Free hour (just like the class)
 
 # TODO:
-# fitness function: classes dont like gaps, teachers dont like gaps (i.e. Free lessons they are assigned to)
-# fitness function: weigh the different factors (e.g. most important is that teachers teach their good subjects)
+# fitness function: teachers dont like gaps (i.e. Free lessons they are assigned to)
+#
 # crossing over: maybe have conflict resoluion also cater to these new factors in the fitness function 
 # (maybe not though because teachers doing their good subjects will be the highes weighed factor)
+# 
+# multithreading (z.B. bei fitness evaluierung: jeder thread evaluiert 1/num_cores der ents)
 
 import math
 import random
@@ -166,12 +168,37 @@ class Optimizer:
         num_classes = len(ent)
         num_slots = len(ent[0])
         score = 0
+        # weights of the different factors
+        prefered_subject_weight = 1
+        gaps_weight = 0.5
+        # plus points if a teacher teaches a subject he is good at
         for i in range(num_classes):
             for j in range(num_slots):
                 subject = ent[i][j][0]
                 teacher = ent[i][j][1]
                 if subject in prefered_subjects[teacher]:
-                    score += 1
+                    score += prefered_subject_weight * 1
+        # minus points for gaps (i.e. a free in between two lessons or if first lesson of the day is free)
+        # compute for all gaps their length and whether they are followed by a lesson or not 
+        gap_info = []
+        for i in range(num_classes):
+            len_counter = 0
+            for j in range(num_slots):
+                if ent[i][j][0] == "Free":
+                    len_counter += 1
+                    # if last slot then we need to save the gap and not rely on this being done when the next lesson filled slot comes
+                    if j == num_slots - 1:
+                        gap_info.append((len_counter, False))
+                else:
+                    # if this lesson was preceeded by a gap
+                    if not (len_counter == 0):
+                        gap_info.append((len_counter, True))
+                        len_conuter = 0
+        # only penlize gaps that are followed by a lesson
+        gap_info = list(filter(lambda x: x[1], gap_info))
+        gap_lens = list(map(lambda x: x[0], gap_info))
+        for gap_len in gap_lens:
+            score -= gaps_weight * gap_len
         return score
 
     def __print_ent(self, ent):
