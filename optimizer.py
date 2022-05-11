@@ -168,7 +168,7 @@ class Optimizer:
         num_classes = len(ent)
         num_slots = len(ent[0])
         score = 0
-        # weights of the different factors
+        # weights of the different factors that contribute to the fitness of an ent
         prefered_subject_weight = 1
         gaps_weight = 0.5
         # plus points if a teacher teaches a subject he is good at
