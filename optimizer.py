@@ -2,22 +2,23 @@
 # All teachers can in theory teach all subjects but are better in some subjects than others (relaxation of "teacher can only teach subjects x,y and z")
 # There must be at least as many teachers as there are classes
 # Teachers are currently being assigned to Free slots but that just means that the teacher has a Free hour (just like the class)
+# num_ent must be even (simplifies crossing over method a bit)
 
 # TODO:
-#
-# Might need to make the mutation decision (based on mut_rate) for every row of the school timetable = ent
+# Why is the multiprocessing slower than using 1 thread? Maybe using Processes will solve that? But Pool should also work!
 #
 # fitness function: teachers dont like gaps (i.e. Free lessons they are assigned to)
 #
 # crossing over: maybe have conflict resolution also cater to these new factors in the fitness function 
 # (maybe not though because teachers doing their good subjects will be the highes weighed factor)
-# 
-# multithreading (z.B. bei fitness evaluierung: jeder thread evaluiert 1/num_cores der ents)
 
 import math
 import random
 import matplotlib.pyplot as plt
 import copy 
+import time
+import multiprocessing
+import numpy as np
 
 class Optimizer:
     def __init__(self, params):
@@ -26,26 +27,31 @@ class Optimizer:
         self.muatation_rate = params[2]
         self.elitism_degree = params[3]
         self.fitness_cache = dict()
+        # for debugin purposes
+        self.use_multiprocessing = True 
 
     def run(self, reqs, prefered_subjects):
+        s = time.time()
         teachers = list(prefered_subjects.keys())
         curr_gen_ents = self.__generate_initial_ents(reqs, teachers)
         top_ents_fitnesses = []
         worst_ents_fitnesses = []
         top_ever_ent = []
+        # using Pool intead of Process because the Pool processes can be used for both mutation and crossing over (Processes would have to be created twice)
+        pool = multiprocessing.Pool(multiprocessing.cpu_count())
         for i in range(self.num_gens):
             # copy needed in order for the mutation and crossing not to mess with the old generation
             old_gen_ents = copy.deepcopy(curr_gen_ents)
-            # perform mutation and crossing over
-            curr_gen_ents = self.__mutate_all(curr_gen_ents, teachers)
-            curr_gen_ents = self.__cross_over_all(curr_gen_ents, teachers, prefered_subjects)
+            # perform mutation and crossing over 
+            curr_gen_ents = self.__mutate_all(curr_gen_ents, teachers, pool)
+            curr_gen_ents = self.__cross_over_all(curr_gen_ents, teachers, prefered_subjects, pool)
             # elitism 
             num_old_gen = math.floor(self.num_ents * self.elitism_degree)
             num_curr_gen = self.num_ents - num_old_gen
             old_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects), reverse=True)
             curr_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects), reverse=True)
             next_gen_ents = old_gen_ents[0:num_old_gen] + curr_gen_ents[0:num_curr_gen]
-            # psave the fitness of the top and worst ent of every gen
+            # save the fitness of the top and worst ent of every gen
             next_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects), reverse=True)
             top_ents_fitnesses.append(self.__fitness(next_gen_ents[0], prefered_subjects))
             worst_ents_fitnesses.append(self.__fitness(next_gen_ents[-1], prefered_subjects))
@@ -61,7 +67,9 @@ class Optimizer:
         plt.plot(top_ents_fitnesses, "g", label="top_ent of gen")
         plt.plot(worst_ents_fitnesses, "r", label="worst_ent of gen")
         plt.legend(loc="lower right")
+        e = time.time()
         plt.show()
+        print("RUNTIME: " +str(e - s))
 
     def __generate_initial_ents(self, reqs, teachers):
         num_slots = 50
@@ -97,52 +105,77 @@ class Optimizer:
             res += sublist
         return res
 
-    def __mutate_all(self, ents, teachers):
-        mutated_ents = []
-        for ent in ents:
-            rand_num = random.uniform(0, 1)
-            if rand_num <= self.muatation_rate:
-                mutated_ents.append(self.__mutate_one(ent, teachers))
-            else:
-                mutated_ents.append(ent)
+    def __mutate_all(self, ents, teachers, pool):
+        data = list(zip(ents, ([teachers] * len(ents))))
+        tasks = (np.array_split(data, multiprocessing.cpu_count()))
+        if self.use_multiprocessing:
+            mutated_ents = self.__flatten(pool.map(self.mutate_batch, tasks))
+        else: 
+            mutated_ents = self.__flatten(map(self.mutate_batch, tasks))
         return mutated_ents
 
-    def __mutate_one(self, ent, teachers):
-        num_slots = 50
-        num_classes = len(ent)
-        row_num = random.randrange(0, num_slots - 1)
-        random.shuffle(teachers)
-        for j in range(num_classes):
-            ent[j][row_num] = (ent[j][row_num], teachers[j])
-        return ent
+    def mutate_batch(self, batch):
+        res = []
+        for input in batch:
+            ent = input[0]
+            teachers = input[1]
+            num_slots = 50
+            # go over every slot in the school timetable (= ent)
+            for slot in range(num_slots):
+                # and decide whether or not to mutate it
+                rand_num = random.randrange(0, 1)
+                if rand_num < self.muatation_rate:
+                    num_classes = len(ent)
+                    random.shuffle(teachers)
+                    for j in range(num_classes):
+                        ent[j][slot] = (ent[j][slot][0], teachers[j])
+            res.append(ent)
+        return res
 
-    def __cross_over_all(self, ents, teachers, prefered_subjects):
+    def __cross_over_all(self, ents, teachers, prefered_subjects, pool):
         # enforcing even number of ents per generation simplifies this method a bit
-        assert(len(ents) % 2 == 0)
+        num_ents = len(ents)
+        assert(num_ents % 2 == 0)
         random.shuffle(ents)
-        crossed_ents = []
-        for i in range(int(len(ents)/2)):
-            crossed_ents += self.__cross_over_two([ents[i], ents[i + 1]], teachers, prefered_subjects)
+        pairs = []
+        for i in range(int(num_ents / 2)):
+            pairs.append([ents[i], ents[i + 1]])
+        teacher_list = ([teachers] * (math.floor(num_ents / 2)))
+        subjs_list = []
+        for i in range(math.floor(num_ents / 2)):
+            subjs_list.append(prefered_subjects)
+        data = list(zip(pairs, teacher_list, subjs_list))
+        tasks = (np.array_split(data, multiprocessing.cpu_count()))
+        if self.use_multiprocessing:
+            crossed_ents = self.__flatten(self.__flatten(pool.map(self.cross_over_batch, tasks)))
+        else:
+            crossed_ents = self.__flatten(self.__flatten(map(self.cross_over_batch, tasks)))
         return crossed_ents
 
-    def __cross_over_two(self, ents, teachers, prefered_subjects):
-        parent_1 = ents[0]
-        parent_2 = ents[1]
-        child_1 = []
-        child_2 = []
-        num_classes = len(parent_1)
-        # construct the children
-        for i in range(num_classes):
-            num = random.uniform(0, 1)
-            if num < 0.5: 
-                child_1.append(parent_1[i])
-                child_2.append(parent_2[i])
-            else:
-                child_1.append(parent_2[i])
-                child_2.append(parent_1[i])
-        child_1 = self.__fix_teacher_conflicts(child_1, teachers, prefered_subjects)
-        child_2 = self.__fix_teacher_conflicts(child_2, teachers, prefered_subjects)
-        return [child_1, child_2]
+    def cross_over_batch(self, batch):
+        res = []
+        for input in batch:
+            ents = input[0]
+            teachers = input[1]
+            prefered_subjects = input[2]
+            parent_1 = ents[0]
+            parent_2 = ents[1]
+            child_1 = []
+            child_2 = []
+            num_classes = len(parent_1)
+            # construct the children
+            for i in range(num_classes):
+                num = random.uniform(0, 1)
+                if num < 0.5: 
+                    child_1.append(parent_1[i])
+                    child_2.append(parent_2[i])
+                else:
+                    child_1.append(parent_2[i])
+                    child_2.append(parent_1[i])
+            child_1 = self.__fix_teacher_conflicts(child_1, teachers, prefered_subjects)
+            child_2 = self.__fix_teacher_conflicts(child_2, teachers, prefered_subjects)
+            res.append([child_1, child_2])
+        return res
 
     def __fix_teacher_conflicts(self, ent, teachers, prefered_subjects):
         num_classes = len(ent)
@@ -183,7 +216,6 @@ class Optimizer:
             return 0
         # caching
         if str(ent) in self.fitness_cache:
-            print("HIT")
             return self.fitness_cache[str(ent)]
         else:
             num_classes = len(ent)

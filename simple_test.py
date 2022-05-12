@@ -1,5 +1,4 @@
 from optimizer import Optimizer
-import time
 
 if __name__ == "__main__":
     class_reqs = [("1A", [("Math", 10), ("Biology", 5), ("Swiss-German", 15)]),
@@ -10,9 +9,6 @@ if __name__ == "__main__":
         "Mrs. R": ["Biology", "Design Of Digital Circuits"], 
         "Mr. E": ["Swiss-German", "Math"]  
     }
-    params = [100, 1000, 0.4, 0.4]
+    params = [5, 100000, 0.4, 0.5]
     opt = Optimizer(params)
-    s = time.time()
     opt.run(class_reqs, prefered_subjects)
-    e = time.time()
-    print(e-s)
