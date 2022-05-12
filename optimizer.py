@@ -28,7 +28,7 @@ class Optimizer:
         self.elitism_degree = params[3]
         self.fitness_cache = dict()
         # for debugin purposes
-        self.use_multiprocessing = True 
+        self.use_multiprocessing = False 
 
     def run(self, reqs, prefered_subjects):
         s = time.time()
@@ -68,8 +68,8 @@ class Optimizer:
         plt.plot(worst_ents_fitnesses, "r", label="worst_ent of gen")
         plt.legend(loc="lower right")
         e = time.time()
+        print("RUNTIME: " + str(e - s))
         plt.show()
-        print("RUNTIME: " +str(e - s))
 
     def __generate_initial_ents(self, reqs, teachers):
         num_slots = 50
@@ -116,20 +116,17 @@ class Optimizer:
 
     def mutate_batch(self, batch):
         res = []
-        for input in batch:
+        for input in batch:   
             ent = input[0]
-            teachers = input[1]
-            num_slots = 50
-            # go over every slot in the school timetable (= ent)
-            for slot in range(num_slots):
-                # and decide whether or not to mutate it
-                rand_num = random.randrange(0, 1)
-                if rand_num < self.muatation_rate:
-                    num_classes = len(ent)
-                    random.shuffle(teachers)
-                    for j in range(num_classes):
-                        ent[j][slot] = (ent[j][slot][0], teachers[j])
+            # decide for every ent (= a school timetable) whether or not to shuffle one of its rows
+            if random.randrange(0, 1) < self.muatation_rate:
+                teachers = input[1]
+                rand_num = random.randrange(0, 49)
+                random.shuffle(teachers)
+                for j in range(len(ent)):
+                    ent[j][rand_num] = (ent[j][rand_num][0], teachers[j])
             res.append(ent)
+            
         return res
 
     def __cross_over_all(self, ents, teachers, prefered_subjects, pool):

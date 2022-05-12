@@ -9,6 +9,6 @@ if __name__ == "__main__":
         "Mrs. R": ["Biology", "Design Of Digital Circuits"], 
         "Mr. E": ["Swiss-German", "Math"]  
     }
-    params = [5, 100000, 0.4, 0.5]
+    params = [400, 400, 0.5, 0.5]
     opt = Optimizer(params)
     opt.run(class_reqs, prefered_subjects)
