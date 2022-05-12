@@ -4,8 +4,7 @@
 # Teachers are currently being assigned to Free slots but that just means that the teacher has a Free hour (just like the class)
 
 # TODO:
-# Cache fitness vals in a dict that is indexed by the to_string of a school timetable
-# 
+#
 # Might need to make the mutation decision (based on mut_rate) for every row of the school timetable = ent
 #
 # fitness function: teachers dont like gaps (i.e. Free lessons they are assigned to)
@@ -26,6 +25,7 @@ class Optimizer:
         self.num_ents = params[1]
         self.muatation_rate = params[2]
         self.elitism_degree = params[3]
+        self.fitness_cache = dict()
 
     def run(self, reqs, prefered_subjects):
         teachers = list(prefered_subjects.keys())
@@ -34,7 +34,9 @@ class Optimizer:
         worst_ents_fitnesses = []
         top_ever_ent = []
         for i in range(self.num_gens):
+            # copy needed in order for the mutation and crossing not to mess with the old generation
             old_gen_ents = copy.deepcopy(curr_gen_ents)
+            # perform mutation and crossing over
             curr_gen_ents = self.__mutate_all(curr_gen_ents, teachers)
             curr_gen_ents = self.__cross_over_all(curr_gen_ents, teachers, prefered_subjects)
             # elitism 
@@ -43,7 +45,7 @@ class Optimizer:
             old_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects), reverse=True)
             curr_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects), reverse=True)
             next_gen_ents = old_gen_ents[0:num_old_gen] + curr_gen_ents[0:num_curr_gen]
-            # progress report: print the fitness of the top ent of each gen to see how things are evolving
+            # psave the fitness of the top and worst ent of every gen
             next_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects), reverse=True)
             top_ents_fitnesses.append(self.__fitness(next_gen_ents[0], prefered_subjects))
             worst_ents_fitnesses.append(self.__fitness(next_gen_ents[-1], prefered_subjects))
@@ -52,6 +54,7 @@ class Optimizer:
                 top_ever_ent = next_gen_ents[0]
             # progress report 
             print("generation " + str(i + 1) + "/" + str(self.num_gens) + " done")
+            # copy needed in order for the mutation and crossing (of the next loop iteration) not to mess with the top_ever_ent
             curr_gen_ents = copy.deepcopy(next_gen_ents)
         # plot the evolution
         print("FITNESS OF TOP EVER SEEN ENT: " + str(self.__fitness(top_ever_ent, prefered_subjects)))
@@ -95,9 +98,8 @@ class Optimizer:
         return res
 
     def __mutate_all(self, ents, teachers):
-        ents_copy = copy.deepcopy(ents)
         mutated_ents = []
-        for ent in ents_copy:
+        for ent in ents:
             rand_num = random.uniform(0, 1)
             if rand_num <= self.muatation_rate:
                 mutated_ents.append(self.__mutate_one(ent, teachers))
@@ -115,13 +117,12 @@ class Optimizer:
         return ent
 
     def __cross_over_all(self, ents, teachers, prefered_subjects):
-        ents_copy = copy.deepcopy(ents)
         # enforcing even number of ents per generation simplifies this method a bit
-        assert(len(ents_copy) % 2 == 0)
-        random.shuffle(ents_copy)
+        assert(len(ents) % 2 == 0)
+        random.shuffle(ents)
         crossed_ents = []
-        for i in range(int(len(ents_copy)/2)):
-            crossed_ents += self.__cross_over_two([ents_copy[i], ents_copy[i + 1]], teachers, prefered_subjects)
+        for i in range(int(len(ents)/2)):
+            crossed_ents += self.__cross_over_two([ents[i], ents[i + 1]], teachers, prefered_subjects)
         return crossed_ents
 
     def __cross_over_two(self, ents, teachers, prefered_subjects):
@@ -147,6 +148,7 @@ class Optimizer:
         num_classes = len(ent)
         num_slots = 50
         for i in range(num_slots):
+            # copy needed in order for leftover_teachers to be a copy of the full teachers list every time the outermost loop loops
             leftover_teachers = teachers[:]
             for j in range(num_classes):
                 self.__remove_if_there(ent[j][i][1], leftover_teachers)
@@ -179,44 +181,51 @@ class Optimizer:
     def __fitness(self, ent, prefered_subjects):
         if ent == []:
             return 0
-        num_classes = len(ent)
-        num_slots = 50
-        score = 0
-        # weights of the different factors that contribute to the fitness of an ent
-        prefered_subject_weight = 1
-        gaps_weight = 0.5
-        # plus points if a teacher teaches a subject he is good at
-        for i in range(num_classes):
-            for j in range(num_slots):
-                subject = ent[i][j][0]
-                teacher = ent[i][j][1]
-                if subject in prefered_subjects[teacher]:
-                    score += prefered_subject_weight * 1
-        # minus points for gaps (i.e. a free in between two lessons or if first lesson of the day is free)
-        # compute for all gaps their length and whether they are followed by a lesson or not 
-        gap_info = []
-        for i in range(num_classes):
-            # for each day in the timetable
-            for k in range(5):
-                len_counter = 0
-                # for each slot in that day
-                for j in range(k * 10, (k + 1) * 10):
-                    if ent[i][j][0] == "Free":
-                        len_counter += 1
-                        # if last slot of the day is free then we need to save the gap and not rely on this being done when the next lesson filled slot comes
-                        if j == ((k + 1) * 10) - 1:
-                            gap_info.append((len_counter, False))
-                    else:
-                        # if this lesson was preceeded by a gap
-                        if not (len_counter == 0):
-                            gap_info.append((len_counter, True))
-                            len_counter = 0
-        # only penlize gaps that are followed by a lesson
-        gap_info = list(filter(lambda x: x[1], gap_info))
-        gap_lens = list(map(lambda x: x[0], gap_info))
-        for gap_len in gap_lens:
-            score -= gaps_weight * gap_len
-        return score
+        # caching
+        if str(ent) in self.fitness_cache:
+            print("HIT")
+            return self.fitness_cache[str(ent)]
+        else:
+            num_classes = len(ent)
+            num_slots = 50
+            score = 0
+            # weights of the different factors that contribute to the fitness of an ent
+            prefered_subject_weight = 1
+            gaps_weight = 0.5
+            # plus points if a teacher teaches a subject he is good at
+            for i in range(num_classes):
+                for j in range(num_slots):
+                    subject = ent[i][j][0]
+                    teacher = ent[i][j][1]
+                    if subject in prefered_subjects[teacher]:
+                        score += prefered_subject_weight * 1
+            # minus points for gaps (i.e. a free in between two lessons or if first lesson of the day is free)
+            # compute for all gaps their length and whether they are followed by a lesson or not 
+            gap_info = []
+            for i in range(num_classes):
+                # for each day in the timetable
+                for k in range(5):
+                    len_counter = 0
+                    # for each slot in that day
+                    for j in range(k * 10, (k + 1) * 10):
+                        if ent[i][j][0] == "Free":
+                            len_counter += 1
+                            # if last slot of the day is free then we need to save the gap and not rely on this being done when the next lesson filled slot comes
+                            if j == ((k + 1) * 10) - 1:
+                                gap_info.append((len_counter, False))
+                        else:
+                            # if this lesson was preceeded by a gap
+                            if not (len_counter == 0):
+                                gap_info.append((len_counter, True))
+                                len_counter = 0
+            # only penlize gaps that are followed by a lesson
+            gap_info = list(filter(lambda x: x[1], gap_info))
+            gap_lens = list(map(lambda x: x[0], gap_info))
+            for gap_len in gap_lens:
+                score -= gaps_weight * gap_len
+            # caache the fitness value of the ent
+            self.fitness_cache[str(ent)] = score
+            return score
 
     def __print_ent(self, ent):
         print("START OF ENT")
