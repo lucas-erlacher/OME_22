@@ -4,7 +4,7 @@
 # Teachers are currently being assigned to Free slots but that just means that the teacher has a Free hour (just like the class)
 
 # TODO:
-# Why does fitness decrease? 
+# Cache fitness vals in a dict that is indexed by the to_string of a school timetable
 # 
 # Might need to make the mutation decision (based on mut_rate) for every row of the school timetable = ent
 #
@@ -34,12 +34,9 @@ class Optimizer:
         worst_ents_fitnesses = []
         top_ever_ent = []
         for i in range(self.num_gens):
-            
             old_gen_ents = copy.deepcopy(curr_gen_ents)
             curr_gen_ents = self.__mutate_all(curr_gen_ents, teachers)
-            
             curr_gen_ents = self.__cross_over_all(curr_gen_ents, teachers, prefered_subjects)
-            
             # elitism 
             num_old_gen = math.floor(self.num_ents * self.elitism_degree)
             num_curr_gen = self.num_ents - num_old_gen
@@ -50,12 +47,11 @@ class Optimizer:
             next_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects), reverse=True)
             top_ents_fitnesses.append(self.__fitness(next_gen_ents[0], prefered_subjects))
             worst_ents_fitnesses.append(self.__fitness(next_gen_ents[-1], prefered_subjects))
-            print(self.__fitness(next_gen_ents[0], prefered_subjects))
             # remeber top ever ent
             if self.__fitness(next_gen_ents[0], prefered_subjects) > self.__fitness(top_ever_ent, prefered_subjects): 
-                top_ever_ent = next_gen_ents[0].copy()
+                top_ever_ent = next_gen_ents[0]
             # progress report 
-            # print("generation " + str(i + 1) + "/" + str(self.num_gens) + " done")
+            print("generation " + str(i + 1) + "/" + str(self.num_gens) + " done")
             curr_gen_ents = copy.deepcopy(next_gen_ents)
         # plot the evolution
         print("FITNESS OF TOP EVER SEEN ENT: " + str(self.__fitness(top_ever_ent, prefered_subjects)))
@@ -188,7 +184,7 @@ class Optimizer:
         score = 0
         # weights of the different factors that contribute to the fitness of an ent
         prefered_subject_weight = 1
-        gaps_weight = 1
+        gaps_weight = 0.5
         # plus points if a teacher teaches a subject he is good at
         for i in range(num_classes):
             for j in range(num_slots):
