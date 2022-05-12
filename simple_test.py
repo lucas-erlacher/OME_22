@@ -1,14 +1,13 @@
 from optimizer import Optimizer
 
 if __name__ == "__main__":
-    class_reqs = [("1A", [("Math", 1), ("Biology", 1), ("Swiss-German", 2)]),
-                  ("1B", [("Math", 2), ("Design Of Digital Circuits", 1)])]
-    num_slots = 20
+    class_reqs = [("1A", [("Math", 10), ("Biology", 5), ("Swiss-German", 15)]),
+                  ("1B", [("Math", 20), ("Design Of Digital Circuits", 10)])]
     prefered_subjects = {
         "Mr. W": ["Math", "Swiss-German"],
         "Mrs. R": ["Biology", "Design Of Digital Circuits"], 
         "Mr. E": ["Swiss-German", "Math"]  
     }
-    params = [10, 10, 0.0, 0.5]
+    params = [100, 1000, 0, 0.4]
     opt = Optimizer(params)
-    opt.run(class_reqs, num_slots, prefered_subjects)
+    opt.run(class_reqs, prefered_subjects)
