@@ -5,12 +5,16 @@
 # num_ent must be even (simplifies crossing over method a bit)
 
 # TODO:
-# Why is the multiprocessing slower than using 1 thread? Maybe using Processes will solve that? But Pool should also work!
+#
+# profiling
 #
 # fitness function: teachers dont like gaps (i.e. Free lessons they are assigned to)
 #
 # crossing over: maybe have conflict resolution also cater to these new factors in the fitness function 
 # (maybe not though because teachers doing their good subjects will be the highes weighed factor)
+#
+# Why is the Pool slower than using one thread? Maybe using Processes will solve that?
+
 
 import math
 import random
@@ -27,7 +31,7 @@ class Optimizer:
         self.muatation_rate = params[2]
         self.elitism_degree = params[3]
         self.fitness_cache = dict()
-        # for debugin purposes
+        # for debuging purposes
         self.use_multiprocessing = False 
 
     def run(self, reqs, prefered_subjects):
@@ -220,7 +224,7 @@ class Optimizer:
             score = 0
             # weights of the different factors that contribute to the fitness of an ent
             prefered_subject_weight = 1
-            gaps_weight = 0.5
+            gaps_weight = 0.2
             # plus points if a teacher teaches a subject he is good at
             for i in range(num_classes):
                 for j in range(num_slots):
@@ -252,7 +256,7 @@ class Optimizer:
             gap_lens = list(map(lambda x: x[0], gap_info))
             for gap_len in gap_lens:
                 score -= gaps_weight * gap_len
-            # caache the fitness value of the ent
+            # cache the fitness value of the ent
             self.fitness_cache[str(ent)] = score
             return score
 
