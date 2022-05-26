@@ -5,24 +5,21 @@
 # num_ent must be even (simplifies crossing over method a bit)
 
 # TODO:
-#
-# profiling
-#
+# optimizations
+# Why is the Pool slower than using one thread? Maybe using Processes will solve that?
 # fitness function: teachers dont like gaps (i.e. Free lessons they are assigned to)
-#
 # crossing over: maybe have conflict resolution also cater to these new factors in the fitness function 
 # (maybe not though because teachers doing their good subjects will be the highes weighed factor)
-#
-# Why is the Pool slower than using one thread? Maybe using Processes will solve that?
-
+# measure baseline (= that FET program) performance 
+# implement parameter search script and run it
 
 import math
 import random
 import matplotlib.pyplot as plt
-import copy 
 import time
 import multiprocessing
 import numpy as np
+import copy
 
 class Optimizer:
     def __init__(self, params):
@@ -31,8 +28,9 @@ class Optimizer:
         self.muatation_rate = params[2]
         self.elitism_degree = params[3]
         self.fitness_cache = dict()
-        # for debuging purposes
+        # for debuging/profiling
         self.use_multiprocessing = False 
+        self.profiling = False
 
     def run(self, reqs, prefered_subjects):
         s = time.time()
@@ -44,35 +42,58 @@ class Optimizer:
         # using Pool intead of Process because the Pool processes can be used for both mutation and crossing over (Processes would have to be created twice)
         pool = multiprocessing.Pool(multiprocessing.cpu_count())
         for i in range(self.num_gens):
+            a = time.time()
             # copy needed in order for the mutation and crossing not to mess with the old generation
+            x = time.time()
             old_gen_ents = copy.deepcopy(curr_gen_ents)
+            y = time.time()
+            if self.profiling: print("COPY CURR ENTS: " + str(y-x))
             # perform mutation and crossing over 
+            x = time.time()
             curr_gen_ents = self.__mutate_all(curr_gen_ents, teachers, pool)
+            y = time.time()
+            if self.profiling: print("MUTATION: " + str(y-x))
+            x = time.time()
             curr_gen_ents = self.__cross_over_all(curr_gen_ents, teachers, prefered_subjects, pool)
+            y = time.time()
+            if self.profiling: print("CROSSING OVER: " + str(y-x))
             # elitism 
             num_old_gen = math.floor(self.num_ents * self.elitism_degree)
             num_curr_gen = self.num_ents - num_old_gen
+            x = time.time()
             old_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects), reverse=True)
+            y = time.time()
+            if self.profiling: print("SORTING OLD ENTS: " + str(y-x))
+            x = time.time()
             curr_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects), reverse=True)
+            y = time.time()
+            if self.profiling: print("SORTING CURR ENTS: " + str(y-x))
             next_gen_ents = old_gen_ents[0:num_old_gen] + curr_gen_ents[0:num_curr_gen]
             # save the fitness of the top and worst ent of every gen
+            x = time.time()
             next_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects), reverse=True)
+            y = time.time()
+            if self.profiling: print("SORTING CURR ENTS: " + str(y-x))
             top_ents_fitnesses.append(self.__fitness(next_gen_ents[0], prefered_subjects))
             worst_ents_fitnesses.append(self.__fitness(next_gen_ents[-1], prefered_subjects))
             # remeber top ever ent
             if self.__fitness(next_gen_ents[0], prefered_subjects) > self.__fitness(top_ever_ent, prefered_subjects): 
                 top_ever_ent = next_gen_ents[0]
-            # progress report 
-            print("generation " + str(i + 1) + "/" + str(self.num_gens) + " done")
             # copy needed in order for the mutation and crossing (of the next loop iteration) not to mess with the top_ever_ent
+            x = time.time()
             curr_gen_ents = copy.deepcopy(next_gen_ents)
+            y = time.time()
+            if self.profiling: print("COPY CURR ENTS: " + str(y-x))
+            b = time.time()
+            # progress report 
+            print("runtime of generation " + str(i + 1) + ": " + str(b-a))
         # plot the evolution
         print("FITNESS OF TOP EVER SEEN ENT: " + str(self.__fitness(top_ever_ent, prefered_subjects)))
         plt.plot(top_ents_fitnesses, "g", label="top_ent of gen")
         plt.plot(worst_ents_fitnesses, "r", label="worst_ent of gen")
         plt.legend(loc="lower right")
         e = time.time()
-        print("RUNTIME: " + str(e - s))
+        print("TOTAL RUNTIME: " + str(e - s))
         plt.show()
 
     def __generate_initial_ents(self, reqs, teachers):
@@ -186,7 +207,7 @@ class Optimizer:
             leftover_teachers = teachers[:]
             for j in range(num_classes):
                 self.__remove_if_there(ent[j][i][1], leftover_teachers)
-                for k in range(j + 1, num_classes):
+                for k in range(j + 1, num_classes): 
                     self.__remove_if_there(ent[k][i][1], leftover_teachers)
                     if ent[j][i][1] == ent[k][i][1]:
                         subj = ent[j][i][0]
