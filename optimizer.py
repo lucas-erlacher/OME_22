@@ -46,7 +46,7 @@ class Optimizer:
         self.num_slots = 50 
         # --------------- Debuging/profiling ------------------------
         self.use_multiprocessing = False
-        self.profiling = False
+        self.profiling = True
         # --------------- Mutation parameters -----------------------
         # Average amount of teacher placements to be mutated per iteration
         self.avg_teacher_mutations = 3
@@ -178,6 +178,7 @@ class Optimizer:
             ent = input[0]
             teachers: List[Teacher_name] = input[1]
             num_classes = len(ent)
+            assert(len(teachers) >= num_classes)
             
             # ---------------clear some courses and fill them back in ----------------
             # We do this in 2 seperate loops to promote mutations
@@ -216,10 +217,10 @@ class Optimizer:
                 n_mutated_teachers = n_mutated_teachers + 1
                 # teachers, who don't teach during clear_slot
                 bored_teachers = list(copy.deepcopy(teachers))
-                # We don't want to get the same one
-                bored_teachers.remove(ent[clear_class][clear_slot][1])
                 for i in range(num_classes):
                     if ent[i][clear_slot][0] != "Free":
+                        # Note: Can't delete the original, in case all others are busy
+                        if i == clear_class : continue
                         tai = ent[i][clear_slot][1] # teacher at i
                         if tai in bored_teachers:
                             bored_teachers.remove(tai)
