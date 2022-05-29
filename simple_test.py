@@ -54,6 +54,6 @@ if __name__ == "__main__":
         "Mr. W": ["E", "F"],
         "Mr. X": ["G", "H"],     
     }
-    params = [1000, 200, 0.75, 0.5]
+    params = [150, 20, 0.75, 0.5]
     opt = Optimizer(params)
     opt.run(class_reqs, prefered_subjects)

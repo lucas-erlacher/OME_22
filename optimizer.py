@@ -52,9 +52,9 @@ class Optimizer:
         # I don't expect crossover to be effective alone, so better keep this on: 
         self.use_mutation = True
         # Average amount of teacher placements to be mutated per iteration
-        self.avg_teacher_mutations = 3
+        self.avg_teacher_mutations = 50
         # Average amount of course<->class<->slot bindings to be mutated per iteration
-        self.avg_course_mutations = 3
+        self.avg_course_mutations = 30
 
     def run(self, reqs, prefered_subjects):
         s = time.time()
@@ -81,7 +81,7 @@ class Optimizer:
             # ---------------Mutation----------------
             if self.use_mutation:
                 x = time.time()
-                curr_gen_ents = self.__mutate_all(curr_gen_ents, teachers, pool)
+                curr_gen_ents = self.__mutate_all(curr_gen_ents, teachers,prefered_subjects, pool)
                 y = time.time()
                 if self.profiling: print("MUTATION: " + str(y-x))
             # --------------Crossover----------------
@@ -122,6 +122,7 @@ class Optimizer:
             b = time.time()
             # progress report 
             print("runtime of generation " + str(i + 1) + ": " + str(b-a))
+            print("current, best fitness: " + str(top_ents_fitnesses[-1]))
             if self.profiling: print()
         # plot the evolution
         print("FITNESS OF TOP EVER SEEN ENT: " + str(self.__fitness(top_ever_ent, prefered_subjects)))
@@ -166,8 +167,11 @@ class Optimizer:
             res += sublist
         return res
 
-    def __mutate_all(self, ents, teachers, pool):
-        data = list(zip(ents, ([teachers] * len(ents))))
+    def __mutate_all(self, ents, teachers, prefered_subjects, pool):
+        num_ents = len(ents)
+        teacher_list = ([teachers] * num_ents)
+        subjs_list = ([prefered_subjects] * num_ents)
+        data = list(zip(ents, teacher_list,subjs_list ))
         tasks = (np.array_split(data, multiprocessing.cpu_count()))
         if self.use_multiprocessing:
             mutated_ents = self.__flatten(pool.map(self.mutate_batch, tasks))
@@ -188,6 +192,7 @@ class Optimizer:
             # --------------------- No dropout ---------------------------
             ent = input[0]
             teachers: List[Teacher_name] = input[1]
+            prefered_subjects = input[2]
             num_classes = len(ent)
             
             # ---------------clear some courses and fill them back in ----------------
@@ -196,7 +201,7 @@ class Optimizer:
             # TODO maybe modularize the filling process and reuse it with initial gens
             
             # Amount of course mutations:
-            n_c_mut = int(random.randrange(0, 2) * self.avg_course_mutations)
+            n_c_mut = int(random.uniform(0, 2) * self.avg_course_mutations)
             # Fill me back in (courses to be filled into classes again)
             fmbi_c: List[Tuple[Class_num,Course]] = []
             # clearing step
@@ -218,23 +223,37 @@ class Optimizer:
                     fmbi_c.pop()
             # --------- clear some teachers and greedily fill them back in ----------
             # Amount of teacher mutations:
-            n_t_mut = int(random.randrange(0, 2) * self.avg_teacher_mutations)
-            n_mutated_teachers = 0
-            while (n_mutated_teachers < n_t_mut):
+            n_t_mut = int(random.uniform(0, 2) * self.avg_teacher_mutations)
+            # clear some teachers assigments
+            fmbi_t: List[Tuple[Class_num,Slot_pos]] = []
+            while (len(fmbi_t) < n_t_mut):
                 clear_class: Class_num = random.randint(0,num_classes - 1)
                 clear_slot: Slot_pos = random.randint(0,self.num_slots - 1)
-                if ent[clear_class][clear_slot][0] == "Free" : continue
-                n_mutated_teachers = n_mutated_teachers + 1
+                if ((ent[clear_class][clear_slot][0] == "Free") or (ent[clear_class][clear_slot][1] == "Refill")) : continue
+                # clear teacher assignment in slot 
+                ent[clear_class][clear_slot] = (ent[clear_class][clear_slot][0],"Refill")
+                # remember slot
+                fmbi_t.append((clear_class,clear_slot))
+                # fill them back in
+            while (len(fmbi_t) > 0):
+                tbf = fmbi_t[-1] #to be filled
+                refill_class = tbf[0]
+                refill_slot = tbf[1]
+                assert(ent[refill_class][refill_slot][1] == "Refill")
                 # teachers, who don't teach during clear_slot
                 bored_teachers = list(copy.deepcopy(teachers))
                 for i in range(num_classes):
-                    if ent[i][clear_slot][0] != "Free":
-                        # Note: Can't delete the original, in case all others are busy
-                        if i == clear_class : continue
-                        tai = ent[i][clear_slot][1] # teacher at i
+                    if ent[i][refill_slot][0] != "Free":
+                        tai = ent[i][refill_slot][1] # teacher at i
                         if tai in bored_teachers:
                             bored_teachers.remove(tai)
-                ent[clear_class][clear_slot] = (ent[clear_class][clear_slot][0],random.choice(bored_teachers))
+                subj: Course = ent[refill_class][refill_slot][0]
+                qualified = list(filter(lambda x: subj in prefered_subjects[x], bored_teachers))
+                if len(qualified)==0:
+                    # suddently everybody is qualified :)
+                    qualified = bored_teachers
+                ent[refill_class][refill_slot] = (ent[refill_class][refill_slot][0],random.choice(qualified))
+                fmbi_t.pop()
             res.append(ent)
         return res
 
