@@ -23,17 +23,35 @@ import time
 import multiprocessing
 import numpy as np
 import copy
+from typing import Tuple, List
+
+Course = str
+Teacher_name = str
+Teacher = Tuple[Teacher_name,List[Course]]
+Slot = Tuple[Course,Teacher_name]
+Class_table = List[Slot]
+Ent = List[Class_table]
+Population = List[Ent]
+Class_num = int
+Slot_pos = int
+
 
 class Optimizer:
     def __init__(self, params):
-        self.num_gens = params[0]
+        self.num_gens = params[0] 
         self.num_ents = params[1]
         self.mutation_rate = params[2]
         self.elitism_degree = params[3]
         self.fitness_cache = dict()
-        # for debuging/profiling
-        self.use_multiprocessing = False 
+        self.num_slots = 50 
+        # --------------- Debuging/profiling ------------------------
+        self.use_multiprocessing = False
         self.profiling = False
+        # --------------- Mutation parameters -----------------------
+        # Average amount of teacher placements to be mutated per iteration
+        self.avg_teacher_mutations = 3
+        # Average amount of course<->class<->slot bindings to be mutated per iteration
+        self.avg_course_mutations = 3
 
     def run(self, reqs, prefered_subjects):
         s = time.time()
@@ -45,6 +63,9 @@ class Optimizer:
         pool = multiprocessing.Pool(multiprocessing.cpu_count())
         for i in range(self.num_gens):
             # increase exploration after a few generations
+            # To discuss: Ist das wirklich die richtige Veränderung? Hatten wir nicht z.B.
+            # bei swarm-algorithms, dass die Schritte immer kleiner werden?
+            # idk tbh. Vielleicht auch ganz gut so..
             if i >= 300 and self.mutation_rate < 1:
                 self.mutation_rate += 0.01
             a = time.time()
@@ -141,22 +162,69 @@ class Optimizer:
         tasks = (np.array_split(data, multiprocessing.cpu_count()))
         if self.use_multiprocessing:
             mutated_ents = self.__flatten(pool.map(self.mutate_batch, tasks))
-        else: 
+        else:
             mutated_ents = self.__flatten(map(self.mutate_batch, tasks))
         return mutated_ents
-
-    def mutate_batch(self, batch):
-        res = []
+    # Are 
+    def mutate_batch(self, batch: Population):
+        res: List[Ent] = []
         for input in batch:   
+            # ---------------------- dropout -----------------------------
+            # randomely decide if ent is excluded from mutation
+            if random.randrange(0, 1) > self.mutation_rate:
+                res.append(ent)
+                return
+            # --------------------- No dropout ---------------------------
             ent = input[0]
-            # decide for every ent (= a school timetable) whether or not to shuffle one of its rows
-            if random.randrange(0, 1) < self.mutation_rate:
-                teachers = input[1]
-                rand_num = random.randrange(0, 49)
-                random.shuffle(teachers)
-                for j in range(len(ent)):
-                    ent[j][rand_num] = (ent[j][rand_num][0], teachers[j])
-            res.append(ent) 
+            teachers: List[Teacher_name] = input[1]
+            num_classes = len(ent)
+            
+            # ---------------clear some courses and fill them back in ----------------
+            # We do this in 2 seperate loops to promote mutations
+            # within freshly cleared slots
+            # TODO maybe modularize the filling process and reuse it with initial gens
+            
+            # Amount of course mutations:
+            n_c_mut = int(random.randrange(0, 2) * self.avg_course_mutations)
+            # Fill me back in (courses to be filled into classes again)
+            fmbi_c: List[Tuple[Class_num,Course]] = []
+            # clearing step
+            while len(fmbi_c) < n_c_mut:
+                clear_class: Class_num = random.randint(0,num_classes - 1)
+                clear_slot: Slot_pos = random.randint(0,self.num_slots - 1)
+                if(ent[clear_class][clear_slot][0] == "Free"): continue
+                else:
+                    # put in fmbi, so we can add the course back in
+                    fmbi_c.append((clear_class,ent[clear_class][clear_slot][0]))
+                    ent[clear_class][clear_slot] = ("Free",ent[clear_class][clear_slot][1])
+            # refill step
+            while len(fmbi_c) > 0 :
+                filling = fmbi_c[-1]
+                refill_class = filling[0]
+                refill_slot: Slot_pos = random.randint(0,self.num_slots - 1)
+                if(ent[refill_class][refill_slot][0] == "Free"):
+                    ent[refill_class][refill_slot] =(filling[1],ent[clear_class][clear_slot][1])
+                    fmbi_c.pop()
+            # --------- clear some teachers and greedily fill them back in ----------
+            # Amount of teacher mutations:
+            n_t_mut = int(random.randrange(0, 2) * self.avg_teacher_mutations)
+            n_mutated_teachers = 0
+            while (n_mutated_teachers < n_t_mut):
+                clear_class: Class_num = random.randint(0,num_classes - 1)
+                clear_slot: Slot_pos = random.randint(0,self.num_slots - 1)
+                if ent[clear_class][clear_slot][0] == "Free" : continue
+                n_mutated_teachers = n_mutated_teachers + 1
+                # teachers, who don't teach during clear_slot
+                bored_teachers = list(copy.deepcopy(teachers))
+                # We don't want to get the same one
+                bored_teachers.remove(ent[clear_class][clear_slot][1])
+                for i in range(num_classes):
+                    if ent[i][clear_slot][0] != "Free":
+                        tai = ent[i][clear_slot][1] # teacher at i
+                        if tai in bored_teachers:
+                            bored_teachers.remove(tai)
+                ent[clear_class][clear_slot] = (ent[clear_class][clear_slot][0],random.choice(bored_teachers))
+            res.append(ent)
         return res
 
     def __cross_over_all(self, ents, teachers, prefered_subjects, pool):
@@ -166,7 +234,7 @@ class Optimizer:
         random.shuffle(ents)
         pairs = []
         for i in range(int(num_ents / 2)):
-            pairs.append([ents[i], ents[i + 1]])
+            pairs.append([ents[2*i], ents[2*i + 1]])
         teacher_list = ([teachers] * (math.floor(num_ents / 2)))
         subjs_list = []
         for i in range(math.floor(num_ents / 2)):
