@@ -48,6 +48,9 @@ class Optimizer:
         self.use_multiprocessing = False
         self.profiling = True
         # --------------- Mutation parameters -----------------------
+        self.use_crossover = False
+        # I don't expect crossover to be effective alone, so better keep this on: 
+        self.use_mutation = True
         # Average amount of teacher placements to be mutated per iteration
         self.avg_teacher_mutations = 3
         # Average amount of course<->class<->slot bindings to be mutated per iteration
@@ -74,19 +77,25 @@ class Optimizer:
             old_gen_ents = copy.deepcopy(curr_gen_ents)
             y = time.time()
             if self.profiling: print("COPY CURR ENTS: " + str(y-x))
-            # perform mutation and crossing over 
-            x = time.time()
-            curr_gen_ents = self.__mutate_all(curr_gen_ents, teachers, pool)
-            y = time.time()
-            if self.profiling: print("MUTATION: " + str(y-x))
-            x = time.time()
-            curr_gen_ents = self.__cross_over_all(curr_gen_ents, teachers, prefered_subjects, pool)
-            y = time.time()
-            if self.profiling: print("CROSSING OVER: " + str(y-x))
-            # elitism 
+            # perform mutation and crossing over
+            # ---------------Mutation----------------
+            if self.use_mutation:
+                x = time.time()
+                curr_gen_ents = self.__mutate_all(curr_gen_ents, teachers, pool)
+                y = time.time()
+                if self.profiling: print("MUTATION: " + str(y-x))
+            # --------------Crossover----------------
+            if self.use_crossover:
+                x = time.time()
+                curr_gen_ents = self.__cross_over_all(curr_gen_ents, teachers, prefered_subjects, pool)
+                y = time.time()
+                if self.profiling: print("CROSSING OVER: " + str(y-x))
+            # -------------- Elitism ----------------- 
             num_old_gen = math.floor(self.num_ents * self.elitism_degree)
             num_curr_gen = self.num_ents - num_old_gen
             x = time.time()
+            # I'm not sure if the key is memoized here to save RAM?
+            # TODO check if we have performance improvement if we evaluate and then sort
             old_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects), reverse=True)
             y = time.time()
             if self.profiling: print("SORTING OLD ENTS: " + str(y-x))
@@ -165,7 +174,9 @@ class Optimizer:
         else:
             mutated_ents = self.__flatten(map(self.mutate_batch, tasks))
         return mutated_ents
-    # Are 
+    # Does 2 things: removes some course placements in some classes and puts these course
+    # placements somewhere else, then removes some teacher placements and tries to find a
+    # teacher for that slot.
     def mutate_batch(self, batch: Population):
         res: List[Ent] = []
         for input in batch:   
@@ -178,7 +189,6 @@ class Optimizer:
             ent = input[0]
             teachers: List[Teacher_name] = input[1]
             num_classes = len(ent)
-            assert(len(teachers) >= num_classes)
             
             # ---------------clear some courses and fill them back in ----------------
             # We do this in 2 seperate loops to promote mutations
