@@ -1,5 +1,8 @@
 # Optimizing school timetables with genetic algorithms
 
+# current state:
+
+
 # TODOs
 (number indicates priority)
 ## (1) Benchmark setups of old/new mutation with/wo crossover and decide which ones are effective
@@ -13,6 +16,21 @@ ideas:
 ### Check fitness change every iteration and stop if it stagnates
 ## (3) Check wether we can avoid some ent deepcopies
 Maybe try to do elitism in place or smth. Might not be possible.
-## (3) Rethink crossover
-In order to get more performant implementation, possibly by fixing teacher conflicts more efficiently. Slot-specific fixing is implemented in teacher refilling in mutation 
 ## (5) Type more expressions. give names to fields of ents etc
+
+# Benchmark results
+
+| commit_date | c | ents | it  | mr   | el  | tm | cm | cmc | fit |
+|-------------|---|------|-----|------|-----|----|----|-----|-----|
+| 2022-05-29  | n | 20   | 150 | 0.75 | 0.5 | 50 | 30 | 1   | 676 |
+| 2022-05-29  | y | 20   | 150 | 0.75 | 0.5 | 50 | 30 | 1   | 704 |
+| 2022-05-29  | y | 10   | 150 | 0.75 | 0.5 | 60 | 5  | 0.4 | 743 |
+|             |   |      |     |      |     |    |    |     |     |
+
+legend:
+- c : crossover?
+- mr : mutation rate
+- el : elitism degree
+- tm : Average amount of teacher placements to be mutated per iteration
+- cm : Average amount of course<->class<->slot bindings to be mutated per iteration
+- cmc: course mutation chance

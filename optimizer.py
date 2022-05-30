@@ -46,15 +46,17 @@ class Optimizer:
         self.num_slots = 50 
         # --------------- Debuging/profiling ------------------------
         self.use_multiprocessing = False
-        self.profiling = True
+        self.profiling = False
         # --------------- Mutation parameters -----------------------
-        self.use_crossover = False
+        self.use_crossover = True
         # I don't expect crossover to be effective alone, so better keep this on: 
         self.use_mutation = True
         # Average amount of teacher placements to be mutated per iteration
-        self.avg_teacher_mutations = 50
+        self.avg_teacher_mutations = 60
         # Average amount of course<->class<->slot bindings to be mutated per iteration
-        self.avg_course_mutations = 30
+        self.avg_course_mutations = 10
+        # Chance to actually do a course mutation on an given ent
+        self.course_mutation_chance = 0.4
 
     def run(self, reqs, prefered_subjects):
         s = time.time()
@@ -125,6 +127,10 @@ class Optimizer:
             print("current, best fitness: " + str(top_ents_fitnesses[-1]))
             if self.profiling: print()
         # plot the evolution
+        freeslots = 0
+        for i in range(self.num_slots):
+            if top_ever_ent[-1][i][0] == "Free": freeslots = freeslots + 1
+        print("Free slots in last class: " + str(freeslots))
         print("FITNESS OF TOP EVER SEEN ENT: " + str(self.__fitness(top_ever_ent, prefered_subjects)))
         plt.plot(top_ents_fitnesses, "g", label="top_ent of gen")
         plt.plot(worst_ents_fitnesses, "r", label="worst_ent of gen")
@@ -184,43 +190,44 @@ class Optimizer:
     def mutate_batch(self, batch: Population):
         res: List[Ent] = []
         for input in batch:   
+            ent = input[0]
             # ---------------------- dropout -----------------------------
             # randomely decide if ent is excluded from mutation
-            if random.randrange(0, 1) > self.mutation_rate:
+            if random.uniform(0, 1) > self.mutation_rate:
                 res.append(ent)
-                return
+                continue
             # --------------------- No dropout ---------------------------
-            ent = input[0]
             teachers: List[Teacher_name] = input[1]
             prefered_subjects = input[2]
             num_classes = len(ent)
-            
-            # ---------------clear some courses and fill them back in ----------------
-            # We do this in 2 seperate loops to promote mutations
-            # within freshly cleared slots
-            # TODO maybe modularize the filling process and reuse it with initial gens
-            
-            # Amount of course mutations:
-            n_c_mut = int(random.uniform(0, 2) * self.avg_course_mutations)
-            # Fill me back in (courses to be filled into classes again)
-            fmbi_c: List[Tuple[Class_num,Course]] = []
-            # clearing step
-            while len(fmbi_c) < n_c_mut:
-                clear_class: Class_num = random.randint(0,num_classes - 1)
-                clear_slot: Slot_pos = random.randint(0,self.num_slots - 1)
-                if(ent[clear_class][clear_slot][0] == "Free"): continue
-                else:
-                    # put in fmbi, so we can add the course back in
-                    fmbi_c.append((clear_class,ent[clear_class][clear_slot][0]))
-                    ent[clear_class][clear_slot] = ("Free",ent[clear_class][clear_slot][1])
-            # refill step
-            while len(fmbi_c) > 0 :
-                filling = fmbi_c[-1]
-                refill_class = filling[0]
-                refill_slot: Slot_pos = random.randint(0,self.num_slots - 1)
-                if(ent[refill_class][refill_slot][0] == "Free"):
-                    ent[refill_class][refill_slot] =(filling[1],ent[clear_class][clear_slot][1])
-                    fmbi_c.pop()
+            if random.uniform(0, 1) < self.course_mutation_chance :
+                # ---------------clear some courses and fill them back in ----------------
+                # We do this in 2 seperate loops to promote mutations
+                # within freshly cleared slots
+                # TODO maybe modularize the filling process and reuse it with initial gens
+                
+                # Amount of course mutations:
+                n_c_mut = int(random.uniform(0, 2) * self.avg_course_mutations)
+                # Fill me back in (courses to be filled into classes again)
+                fmbi_c: List[Tuple[Class_num,Course]] = []
+                # clearing step
+                while len(fmbi_c) < n_c_mut:
+                    clear_class: Class_num = random.randint(0,num_classes - 1)
+                    clear_slot: Slot_pos = random.randint(0,self.num_slots - 1)
+                    if(ent[clear_class][clear_slot][0] == "Free"): continue
+                    else:
+                        # put in fmbi, so we can add the course back in
+                        fmbi_c.append((clear_class,ent[clear_class][clear_slot][0]))
+                        ent[clear_class][clear_slot] = ("Free",ent[clear_class][clear_slot][1])
+                        # refill step
+                while len(fmbi_c) > 0 :
+                    filling = fmbi_c[-1]
+                    refill_class = filling[0]
+                    assert(filling[1] != "Free")
+                    refill_slot: Slot_pos = random.randint(0,self.num_slots - 1)
+                    if(ent[refill_class][refill_slot][0] == "Free"):
+                        ent[refill_class][refill_slot] =(filling[1],ent[clear_class][clear_slot][1])
+                        fmbi_c.pop()
             # --------- clear some teachers and greedily fill them back in ----------
             # Amount of teacher mutations:
             n_t_mut = int(random.uniform(0, 2) * self.avg_teacher_mutations)
