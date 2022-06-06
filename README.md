@@ -7,10 +7,6 @@
 (number indicates priority)
 ## (0) Fix crossover
 It currently somehow adds additional subjects(removing free slots) in the last class. See the freeslots statement. That's probably why it helps so much :) closes gaps and adds more prefered subjects :)
-
-Problem are the lines 299-306. I (Lucas) wrote them and they are nonsense: dort werden einfach zwei zufällige ents zusammenkombiniert ohne Rücksicht auf die requirements (deswegen haben Klassen danach weniger free-slots als vor diesen Zeilen). 
-
-TLDR: cross_over_batch muss anders implemtiert werden. Es ist aber nicht offensichtlich wie man crossing over von zwei Stundenplänen machen kann ohne die requireements zu verletzen. 
 ## (1) Benchmark setups of old/new mutation with/wo crossover and decide which ones are effective
 ## (2) Check wether precalculating fitness before sorting improves it. 
 Laurent suspects it might not memo the result and calculates fitness nlogn times.
@@ -31,9 +27,8 @@ Maybe try to do elitism in place or smth. Might not be possible.
 | commit_date | c | ents | its | mr   | el  | tm | cm | cmc | fit |
 |-------------|---|------|-----|------|-----|----|----|-----|-----|
 | 2022-05-29  | n | 20   | 150 | 0.75 | 0.5 | 50 | 30 | 1   | 676 |
-| 2022-05-29  | y | 20   | 150 | 0.75 | 0.5 | 50 | 30 | 1   | 704 |
-| 2022-05-29  | y | 10   | 150 | 0.75 | 0.5 | 60 | 5  | 0.4 | 743 |
 | 2022-06-06  | n | 100  | 1500| 0.9  | 0.75| 60 | 10 | 0.4 | 721 |
+| 2022-06-06  | y | 100  | 500 | 0.9  | 0.75| 60 | 10 | 0.4 | 727 |
 
 legend:
 - c : crossover?

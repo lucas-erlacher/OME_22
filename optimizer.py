@@ -48,7 +48,7 @@ class Optimizer:
         self.use_multiprocessing = False
         self.profiling = False
         # --------------- Mutation parameters -----------------------
-        self.use_crossover = False
+        self.use_crossover = True
         # I don't expect crossover to be effective alone, so better keep this on: 
         self.use_mutation = True
         # Average amount of teacher placements to be mutated per iteration
@@ -304,13 +304,6 @@ class Optimizer:
                 else:
                     child_1.append(parent_2[i])
                     child_2.append(parent_1[i])
-            child_1_counters = self.count_free_slots(child_1)
-            child_2_counters = self.count_free_slots(child_2)
-            # DEBUGGING
-            # print(sum(child_1_counters))
-            # print(sum(child_2_counters))
-            child_1 = self.__fix_teacher_conflicts(child_1, teachers, prefered_subjects)
-            child_2 = self.__fix_teacher_conflicts(child_2, teachers, prefered_subjects)
             res.append([child_1, child_2])
         return res
 
@@ -329,7 +322,7 @@ class Optimizer:
     def __fix_teacher_conflicts(self, ent, teachers, prefered_subjects):
         num_classes = len(ent)
         num_slots = 50
-        for i in range(num_slots):
+        for i in range(2):
             # copy needed in order for leftover_teachers to be a copy of the full teachers list every time the outermost loop loops
             leftover_teachers = teachers[:]
             for j in range(num_classes):
@@ -337,6 +330,11 @@ class Optimizer:
                 for k in range(j + 1, num_classes): 
                     self.__remove_if_there(ent[k][i][1], leftover_teachers)
                     if ent[j][i][1] == ent[k][i][1]:
+                        if ent[j][i][0] == "Free" or ent[k][i][0] == "Free": 
+                            # if one or both of the conflicting lessons are free there is no need to fix anything
+                            # (if one hour is free and the other is a lesson the teacher can just give that lesson (no need to fix anything in that case)) 
+                            # (if both are free he obviously has a free lesson (no need to fix anything in that case either))
+                            continue
                         subj = ent[j][i][0]
                         # try to resolve the conflict using a teacher that is prefered in this subject
                         qualified = list(filter(lambda x: subj in prefered_subjects[x], leftover_teachers))
