@@ -10,6 +10,8 @@ It currently somehow adds additional subjects(removing free slots) in the last c
 ## (1) Benchmark setups of old/new mutation with/wo crossover and decide which ones are effective
 ## (2) Check wether precalculating fitness before sorting improves it. 
 Laurent suspects it might not memo the result and calculates fitness nlogn times.
+
+Question (by Lucas): fitness is never computed more than once for the same ent (bc of that fitness_cache dict in the fitness method). Ich verstehe nicht ganz was fitnesses vor dem sortieren vorberechnen bringen würde. Aber kann auch gut sein dass ich etwas übersehe ! 
 ## (3) Make mutation concentrate on unfit slots and classes
 We mostly replace fit slots, which is not likely to improve the tables. This could be done by defining a slot- and class-local notion of fitness
 ## (3) Parametrize/diversify selection process
@@ -22,12 +24,12 @@ Maybe try to do elitism in place or smth. Might not be possible.
 
 # Benchmark results
 
-| commit_date | c | ents | it  | mr   | el  | tm | cm | cmc | fit |
+| commit_date | c | ents | its | mr   | el  | tm | cm | cmc | fit |
 |-------------|---|------|-----|------|-----|----|----|-----|-----|
 | 2022-05-29  | n | 20   | 150 | 0.75 | 0.5 | 50 | 30 | 1   | 676 |
 | 2022-05-29  | y | 20   | 150 | 0.75 | 0.5 | 50 | 30 | 1   | 704 |
 | 2022-05-29  | y | 10   | 150 | 0.75 | 0.5 | 60 | 5  | 0.4 | 743 |
-|             |   |      |     |      |     |    |    |     |     |
+| 2022-06-06  | n | 100  | 1500| 0.9  | 0.75| 60 | 10 | 0.4 | 721 |
 
 legend:
 - c : crossover?
