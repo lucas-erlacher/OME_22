@@ -10,6 +10,7 @@ It currently somehow adds additional subjects(removing free slots) in the last c
 ## (1) Benchmark setups of old/new mutation with/wo crossover and decide which ones are effective
 ## (2) Check wether precalculating fitness before sorting improves it. 
 Laurent suspects it might not memo the result and calculates fitness nlogn times.
+Question (by Lucas): fitness is never computed more than once for the same ent (bc of that fitness_cache dict in the fitness method). Ich verstehe nicht ganz was fitnesses vor dem sortieren vorberechnen bringen würde. Aber kann auch gut sein dass ich etwas übersehe ! 
 ## (3) Make mutation concentrate on unfit slots and classes
 We mostly replace fit slots, which is not likely to improve the tables. This could be done by defining a slot- and class-local notion of fitness
 ## (3) Parametrize/diversify selection process
