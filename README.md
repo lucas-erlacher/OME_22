@@ -9,6 +9,8 @@
 It currently somehow adds additional subjects(removing free slots) in the last class. See the freeslots statement. That's probably why it helps so much :) closes gaps and adds more prefered subjects :)
 
 Problem are the lines 299-306. I (Lucas) wrote them and they are nonsense: dort werden einfach zwei zufällige ents zusammenkombiniert ohne Rücksicht auf die requirements (deswegen haben Klassen danach weniger free-slots als vor diesen Zeilen). 
+
+TLDR: cross_over_batch muss anders implemtiert werden. Es ist aber nicht offensichtlich wie man crossing over von zwei Stundenplänen machen kann ohne die requireements zu verletzen. 
 ## (1) Benchmark setups of old/new mutation with/wo crossover and decide which ones are effective
 ## (2) Check wether precalculating fitness before sorting improves it. 
 Laurent suspects it might not memo the result and calculates fitness nlogn times.
