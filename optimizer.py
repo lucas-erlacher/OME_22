@@ -48,7 +48,7 @@ class Optimizer:
         self.use_multiprocessing = False
         self.profiling = False
         # --------------- Mutation parameters -----------------------
-        self.use_crossover = True
+        self.use_crossover = False
         # I don't expect crossover to be effective alone, so better keep this on: 
         self.use_mutation = True
         # Average amount of teacher placements to be mutated per iteration
@@ -304,10 +304,27 @@ class Optimizer:
                 else:
                     child_1.append(parent_2[i])
                     child_2.append(parent_1[i])
+            child_1_counters = self.count_free_slots(child_1)
+            child_2_counters = self.count_free_slots(child_2)
+            # DEBUGGING
+            # print(sum(child_1_counters))
+            # print(sum(child_2_counters))
             child_1 = self.__fix_teacher_conflicts(child_1, teachers, prefered_subjects)
             child_2 = self.__fix_teacher_conflicts(child_2, teachers, prefered_subjects)
             res.append([child_1, child_2])
         return res
+
+    # for debugging purposes
+    def count_free_slots(self, ent):
+        counters = []
+        for class_table in ent:
+            counter = 0
+            for slot_num in range(len(class_table)):
+                if class_table[slot_num][0] == "Free":
+                    counter += 1
+            counters.append(counter)
+        return counters
+
 
     def __fix_teacher_conflicts(self, ent, teachers, prefered_subjects):
         num_classes = len(ent)
