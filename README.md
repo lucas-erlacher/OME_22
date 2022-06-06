@@ -27,8 +27,8 @@ Maybe try to do elitism in place or smth. Might not be possible.
 | commit_date | c | ents | its | mr   | el  | tm | cm | cmc | fit |
 |-------------|---|------|-----|------|-----|----|----|-----|-----|
 | 2022-05-29  | n | 20   | 150 | 0.75 | 0.5 | 50 | 30 | 1   | 676 |
-| 2022-05-29  | y | 20   | 150 | 0.75 | 0.5 | 50 | 30 | 1   | 704 | <- problematic because crossing over is buggy
-| 2022-05-29  | y | 10   | 150 | 0.75 | 0.5 | 60 | 5  | 0.4 | 743 | <- problematic because crossing over is buggy
+| 2022-05-29  | y | 20   | 150 | 0.75 | 0.5 | 50 | 30 | 1   | 704 |
+| 2022-05-29  | y | 10   | 150 | 0.75 | 0.5 | 60 | 5  | 0.4 | 743 |
 | 2022-06-06  | n | 100  | 1500| 0.9  | 0.75| 60 | 10 | 0.4 | 721 |
 
 legend:
