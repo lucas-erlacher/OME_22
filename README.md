@@ -5,8 +5,6 @@
 
 # TODOs
 (number indicates priority)
-## (0) Fix crossover
-It currently somehow adds additional subjects(removing free slots) in the last class. See the freeslots statement. That's probably why it helps so much :) closes gaps and adds more prefered subjects :)
 ## (1) Benchmark setups of old/new mutation with/wo crossover and decide which ones are effective
 ## (2) Check wether precalculating fitness before sorting improves it. 
 Laurent suspects it might not memo the result and calculates fitness nlogn times.
