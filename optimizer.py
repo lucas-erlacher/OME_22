@@ -16,6 +16,7 @@
 # EVALUATION
 #   measure baseline (= that FET program) performance 
 
+from itertools import count
 import math
 import random
 import matplotlib.pyplot as plt
@@ -123,7 +124,7 @@ class Optimizer:
             if self.profiling: print("COPY CURR ENTS: " + str(y-x))
             b = time.time()
             # progress report 
-            print("runtime of generation " + str(i + 1) + ": " + str(b-a))
+            # print("runtime of generation " + str(i + 1) + ": " + str(b-a))
             print("current, best fitness: " + str(top_ents_fitnesses[-1]))
             if self.profiling: print()
         # plot the evolution
@@ -304,11 +305,13 @@ class Optimizer:
                 else:
                     child_1.append(parent_2[i])
                     child_2.append(parent_1[i])
+            child_1 = self.__fix_teacher_conflicts(child_1, teachers, prefered_subjects)
+            child_2 = self.__fix_teacher_conflicts(child_2, teachers, prefered_subjects)
             res.append([child_1, child_2])
         return res
 
     # for debugging purposes
-    def count_free_slots(self, ent):
+    def num_free_slots_changed(self, ent):
         counters = []
         for class_table in ent:
             counter = 0
@@ -316,8 +319,11 @@ class Optimizer:
                 if class_table[slot_num][0] == "Free":
                     counter += 1
             counters.append(counter)
-        return counters
-
+        res = list(map(lambda x: x == 18, counters))
+        if all(res): 
+            return False
+        else: 
+            return True
 
     def __fix_teacher_conflicts(self, ent, teachers, prefered_subjects):
         num_classes = len(ent)
@@ -330,12 +336,7 @@ class Optimizer:
                 for k in range(j + 1, num_classes): 
                     self.__remove_if_there(ent[k][i][1], leftover_teachers)
                     if ent[j][i][1] == ent[k][i][1]:
-                        if ent[j][i][0] == "Free" or ent[k][i][0] == "Free": 
-                            # if one or both of the conflicting lessons are free there is no need to fix anything
-                            # (if one hour is free and the other is a lesson the teacher can just give that lesson (no need to fix anything in that case)) 
-                            # (if both are free he obviously has a free lesson (no need to fix anything in that case either))
-                            continue
-                        subj = ent[j][i][0]
+                        subj = ent[k][i][0]
                         # try to resolve the conflict using a teacher that is prefered in this subject
                         qualified = list(filter(lambda x: subj in prefered_subjects[x], leftover_teachers))
                         if len(qualified) > 0:
@@ -348,7 +349,9 @@ class Optimizer:
                             else:
                                 picked_teacher = leftover_teachers[random.randrange(0, len(leftover_teachers) - 1)]
                             ent[k][i] = (subj, picked_teacher)
-                        leftover_teachers.remove(picked_teacher)   
+                        leftover_teachers.remove(picked_teacher) 
+                    if self.num_free_slots_changed(ent) and (ent[j][i][0] == "Free" or ent[k][i][0] == "Free"): 
+                        print(ent[j][i][0], ent[k][i][0]) 
         return ent
 
     def __remove_if_there(self, elem, l):
