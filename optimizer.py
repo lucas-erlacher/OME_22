@@ -124,7 +124,7 @@ class Optimizer:
             if self.profiling: print("COPY CURR ENTS: " + str(y-x))
             b = time.time()
             # progress report 
-            # print("runtime of generation " + str(i + 1) + ": " + str(b-a))
+            print("runtime of generation " + str(i + 1) + ": " + str(b-a))
             print("current, best fitness: " + str(top_ents_fitnesses[-1]))
             if self.profiling: print()
         # plot the evolution
@@ -350,8 +350,6 @@ class Optimizer:
                                 picked_teacher = leftover_teachers[random.randrange(0, len(leftover_teachers) - 1)]
                             ent[k][i] = (subj, picked_teacher)
                         leftover_teachers.remove(picked_teacher) 
-                    if self.num_free_slots_changed(ent) and (ent[j][i][0] == "Free" or ent[k][i][0] == "Free"): 
-                        print(ent[j][i][0], ent[k][i][0]) 
         return ent
 
     def __remove_if_there(self, elem, l):
