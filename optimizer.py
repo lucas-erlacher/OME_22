@@ -50,6 +50,9 @@ class Optimizer:
         # --------------- Multiple initializations ------------------
         # set this to 1 to diable this feature
         self.num_inits = 100
+        # --------------- Periodically boost diversity --------------
+        self.replace_frac = 0.9
+        self.replace_freq = 50
         # --------------- Mutation parameters -----------------------
         self.use_crossover = True
         # I don't expect crossover to be effective alone, so better keep this on: 
@@ -78,6 +81,14 @@ class Optimizer:
         top_ever_ent = []
         pool = multiprocessing.Pool(multiprocessing.cpu_count())
         for i in range(self.num_gens):
+            # periodically boost the diversity of the population
+            if i > 100 and (i % self.replace_freq == 0):
+                num_replace = math.floor(self.num_ents * self.replace_frac)
+                num_keep = self.num_ents - num_replace
+                new_ents = self.__generate_initial_ents(reqs, teachers)
+                # sort to make sure that the top ents of the last gen are definitely kept
+                curr_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects), reverse=True)
+                curr_gen_ents = curr_gen_ents[0:num_keep] + new_ents[0:num_replace]
             # increase exploration after a few generations
             # To discuss: Ist das wirklich die richtige Veränderung? Hatten wir nicht z.B.
             # bei swarm-algorithms, dass die Schritte immer kleiner werden?
