@@ -48,11 +48,13 @@ class Optimizer:
         self.use_multiprocessing = False
         self.profiling = False
         # --------------- Multiple initializations ------------------
-        # set this to 1 to diable this feature
+        # THIS FEATURE DIDNT REALLY HELP BUT IT ALSO DOESNT INCREASE RUNTIME MUCH SO I JUST KEPT IT 
+        # set this to 1 to disable this feature
         self.num_inits = 100
         # --------------- Periodically boost diversity --------------
-        self.replace_frac = 0.9
-        self.replace_freq = 50
+        # THIS FEATURE DIDNT REALLY HELP
+        self.replace_frac = 0  # turn off the feature by setting this to 0
+        self.replace_freq = 20
         # --------------- Mutation parameters -----------------------
         self.use_crossover = True
         # I don't expect crossover to be effective alone, so better keep this on: 
@@ -64,8 +66,9 @@ class Optimizer:
         # Chance to actually do a course mutation on an given ent
         self.course_mutation_chance = 0.4
         # mutate fit slots less
+        # THIS FEATURE ONLY HELPED IN THE BEGINNING BUT MADE NO DIFFERENCE OVER MANY GENERATIONS
         # set to 1 to disable this feature
-        self.fit_slots_mut_rate = 0.5
+        self.fit_slots_mut_rate = 1
 
     def run(self, reqs, prefered_subjects):
         s = time.time()
@@ -454,9 +457,8 @@ class Optimizer:
     # but other things (like e.g. fitness of top ent, diversity within the ents of a generation) could be the better
     # measure of fitness of a generation
     def __fitness_of_generation(self, generation, preferred_subjects):
-        generation.sort(key=lambda x: self.__fitness(x, preferred_subjects), reverse=True)
-        diff = abs(self.__fitness(generation[0], preferred_subjects) - self.__fitness(generation[-1], preferred_subjects))
-        return diff
+        fitnesses = list(map(lambda x: self.__fitness(x, preferred_subjects), generation))
+        return sum(fitnesses)
 
     def __print_ent(self, ent):
         print("START OF ENT")
