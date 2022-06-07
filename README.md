@@ -1,7 +1,5 @@
 # Optimizing school timetables with genetic algorithms
 
-# current state:
-
 # TODOs
 (number indicates priority)
 ## (0) Idea:
@@ -21,7 +19,10 @@ ideas:
 ### Check fitness change every iteration and stop if it stagnates
 ## (3) Check wether we can avoid some ent deepcopies
 Maybe try to do elitism in place or smth. Might not be possible.
-## (5) Type more expressions. give names to fields of ents etc
+## (4) Testcases
+The current testcase is highly structured (not very reaslistic). Write more testcases or code that generates testscases. 
+Also, write code that determines the theoretically optimal fitness value of a given test case (so that we can in the end compare the reusult of our algo to that optimum). 
+## (6) Type more expressions. give names to fields of ents etc
 
 # Benchmark results
 
