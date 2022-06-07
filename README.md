@@ -2,11 +2,10 @@
 
 # current state:
 
-
 # TODOs
 (number indicates priority)
 ## (0) Idea:
-The end result varies quite a bit from run to run (even with the same parameters) i.e. the end result seems to depend quite a bit on getting lucky with a good initialization. So why not run the first 100 generations 5 (or so) times and only finish (i.e. run the remaining generations) on the best peforming run?
+The end result varies quite a bit from run to run (even with the same parameters) i.e. the end result seems to depend quite a bit on getting lucky with a good initialization. So why not run the first 50 generations 10 (or so) times (das könnte man auch sehr schön parallelisieren) and only finish (i.e. run the remaining generations) on the best peforming run?
 ## (1) Benchmark setups of old/new mutation with/wo crossover and decide which ones are effective
 ## (2) Check wether precalculating fitness before sorting improves it. 
 Laurent suspects it might not memo the result and calculates fitness nlogn times.

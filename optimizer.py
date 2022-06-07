@@ -222,7 +222,7 @@ class Optimizer:
                 while len(fmbi_c) < n_c_mut:
                     # prevent infinte loop if there are not enough slots that qualify for mutation
                     counter += 1
-                    if counter == 500:
+                    if counter == 1500:
                         break
                     clear_class: Class_num = random.randint(0,num_classes - 1)
                     clear_slot: Slot_pos = random.randint(0,self.num_slots - 1)
@@ -254,7 +254,7 @@ class Optimizer:
             while (len(fmbi_t) < n_t_mut):
                 # prevent infinte loop if there are not enough slots that qualify for mutation
                 counter += 1
-                if counter == 500:
+                if counter == 1500:
                     break
                 clear_class: Class_num = random.randint(0,num_classes - 1)
                 clear_slot: Slot_pos = random.randint(0,self.num_slots - 1)
