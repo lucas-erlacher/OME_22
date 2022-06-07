@@ -58,6 +58,11 @@ class Optimizer:
         self.avg_course_mutations = 10
         # Chance to actually do a course mutation on an given ent
         self.course_mutation_chance = 0.4
+        # mutate fit slots less
+        self.fit_slots_mut_rate = 0.5
+
+        # I am lazy
+        self.gen_num = 0
 
     def run(self, reqs, prefered_subjects):
         s = time.time()
@@ -68,6 +73,7 @@ class Optimizer:
         top_ever_ent = []
         pool = multiprocessing.Pool(multiprocessing.cpu_count())
         for i in range(self.num_gens):
+            self.gen_num = i
             # increase exploration after a few generations
             # To discuss: Ist das wirklich die richtige Veränderung? Hatten wir nicht z.B.
             # bei swarm-algorithms, dass die Schritte immer kleiner werden?
@@ -185,6 +191,7 @@ class Optimizer:
         else:
             mutated_ents = self.__flatten(map(self.mutate_batch, tasks))
         return mutated_ents
+
     # Does 2 things: removes some course placements in some classes and puts these course
     # placements somewhere else, then removes some teacher placements and tries to find a
     # teacher for that slot.
@@ -192,14 +199,14 @@ class Optimizer:
         res: List[Ent] = []
         for input in batch:   
             ent = input[0]
+            prefered_subjects = input[2]
+            teachers: List[Teacher_name] = input[1]
             # ---------------------- dropout -----------------------------
             # randomely decide if ent is excluded from mutation
             if random.uniform(0, 1) > self.mutation_rate:
                 res.append(ent)
                 continue
             # --------------------- No dropout ---------------------------
-            teachers: List[Teacher_name] = input[1]
-            prefered_subjects = input[2]
             num_classes = len(ent)
             if random.uniform(0, 1) < self.course_mutation_chance :
                 # ---------------clear some courses and fill them back in ----------------
@@ -212,15 +219,25 @@ class Optimizer:
                 # Fill me back in (courses to be filled into classes again)
                 fmbi_c: List[Tuple[Class_num,Course]] = []
                 # clearing step
+                counter = 0
                 while len(fmbi_c) < n_c_mut:
+                    # prevent infinte loop if there are not enough slots that qualify for mutation
+                    counter += 1
+                    if counter == 500:
+                        break
                     clear_class: Class_num = random.randint(0,num_classes - 1)
                     clear_slot: Slot_pos = random.randint(0,self.num_slots - 1)
                     if(ent[clear_class][clear_slot][0] == "Free"): continue
-                    else:
-                        # put in fmbi, so we can add the course back in
-                        fmbi_c.append((clear_class,ent[clear_class][clear_slot][0]))
-                        ent[clear_class][clear_slot] = ("Free",ent[clear_class][clear_slot][1])
-                        # refill step
+                    # if the slot is already fit (teacher likes the subject he is teaching in the slot) there is no need to change it
+                    subj = ent[clear_class][clear_slot][0]
+                    teacher = ent[clear_class][clear_slot][1]
+                    if subj in prefered_subjects[teacher]:
+                        if random.uniform(0, 1) > self.fit_slots_mut_rate:
+                            continue
+                    # put in fmbi, so we can add the course back in
+                    fmbi_c.append((clear_class,ent[clear_class][clear_slot][0]))
+                    ent[clear_class][clear_slot] = ("Free",ent[clear_class][clear_slot][1])
+                # refill step
                 while len(fmbi_c) > 0 :
                     filling = fmbi_c[-1]
                     refill_class = filling[0]
@@ -233,11 +250,22 @@ class Optimizer:
             # Amount of teacher mutations:
             n_t_mut = int(random.uniform(0, 2) * self.avg_teacher_mutations)
             # clear some teachers assigments
+            counter = 0
             fmbi_t: List[Tuple[Class_num,Slot_pos]] = []
             while (len(fmbi_t) < n_t_mut):
+                # prevent infinte loop if there are not enough slots that qualify for mutation
+                counter += 1
+                if counter == 500:
+                    break
                 clear_class: Class_num = random.randint(0,num_classes - 1)
                 clear_slot: Slot_pos = random.randint(0,self.num_slots - 1)
                 if ((ent[clear_class][clear_slot][0] == "Free") or (ent[clear_class][clear_slot][1] == "Refill")) : continue
+                # if the slot is already fit (teacher likes the subject he is teaching in the slot) there is no need to change it
+                subj = ent[clear_class][clear_slot][0]
+                teacher = ent[clear_class][clear_slot][1]
+                if subj in prefered_subjects[teacher]:
+                    if random.uniform(0, 1) > self.fit_slots_mut_rate:
+                        continue
                 # clear teacher assignment in slot 
                 ent[clear_class][clear_slot] = (ent[clear_class][clear_slot][0],"Refill")
                 # remember slot
