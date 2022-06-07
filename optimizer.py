@@ -36,7 +36,6 @@ Population = List[Ent]
 Class_num = int
 Slot_pos = int
 
-
 class Optimizer:
     def __init__(self, params):
         self.num_gens = params[0] 

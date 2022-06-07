@@ -6,7 +6,7 @@
 # TODOs
 (number indicates priority)
 ## (0) Idea:
-The end result varies quite a bit from run to run (even with the same parameters). So why not run the first 100 generations 10 (or so) times in parallel and only finish (i.e. run the remaining generations) on the best peforming run?
+The end result varies quite a bit from run to run (even with the same parameters) i.e. the end result seems to depend quite a bit on getting lucky with a good initialization. So why not run the first 100 generations 5 (or so) times and only finish (i.e. run the remaining generations) on the best peforming run?
 ## (1) Benchmark setups of old/new mutation with/wo crossover and decide which ones are effective
 ## (2) Check wether precalculating fitness before sorting improves it. 
 Laurent suspects it might not memo the result and calculates fitness nlogn times.
@@ -15,7 +15,7 @@ Question (by Lucas): fitness is never computed more than once for the same ent (
 ## (3) Make mutation concentrate on unfit slots and classes
 We mostly replace fit slots, which is not likely to improve the tables. This could be done by defining a slot- and class-local notion of fitness
 
-Implemented fit_slots_mut_rate parameter which kind of does something like this. 
+Implemented fit_slots_mut_rate parameter which kind of does something like this. This made the evolution in the initial 100 or so generations even faster, however over the long run (1000 or so generations) using this feature made no difference. 
 ## (3) Parametrize/diversify selection process
 ideas:
 ### Make unfit tables mutate/crossover harder
