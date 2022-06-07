@@ -227,7 +227,7 @@ class Optimizer:
                     clear_class: Class_num = random.randint(0,num_classes - 1)
                     clear_slot: Slot_pos = random.randint(0,self.num_slots - 1)
                     if(ent[clear_class][clear_slot][0] == "Free"): continue
-                    # if the slot is already fit (teacher likes the subject he is teaching in the slot) there is no need to change it
+                    # if the slot is already fit (teacher likes the subject he is teaching in the slot) then be more conservative with mutating it
                     subj = ent[clear_class][clear_slot][0]
                     teacher = ent[clear_class][clear_slot][1]
                     if subj in prefered_subjects[teacher]:
@@ -259,7 +259,7 @@ class Optimizer:
                 clear_class: Class_num = random.randint(0,num_classes - 1)
                 clear_slot: Slot_pos = random.randint(0,self.num_slots - 1)
                 if ((ent[clear_class][clear_slot][0] == "Free") or (ent[clear_class][clear_slot][1] == "Refill")) : continue
-                # if the slot is already fit (teacher likes the subject he is teaching in the slot) there is no need to change it
+                # if the slot is already fit (teacher likes the subject he is teaching in the slot) then be more conservative with mutating it
                 subj = ent[clear_class][clear_slot][0]
                 teacher = ent[clear_class][clear_slot][1]
                 if subj in prefered_subjects[teacher]:
