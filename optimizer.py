@@ -49,7 +49,7 @@ class Optimizer:
         self.profiling = False
         # --------------- Multiple initializations ------------------
         # set this to 1 to diable this feature
-        self.num_inits = 10
+        self.num_inits = 100
         # --------------- Mutation parameters -----------------------
         self.use_crossover = True
         # I don't expect crossover to be effective alone, so better keep this on: 
@@ -443,8 +443,9 @@ class Optimizer:
     # but other things (like e.g. fitness of top ent, diversity within the ents of a generation) could be the better
     # measure of fitness of a generation
     def __fitness_of_generation(self, generation, preferred_subjects):
-        fitnesses = list(map(lambda x: self.__fitness(x, preferred_subjects), generation))
-        return sum(fitnesses)
+        generation.sort(key=lambda x: self.__fitness(x, preferred_subjects), reverse=True)
+        diff = abs(self.__fitness(generation[0], preferred_subjects) - self.__fitness(generation[-1], preferred_subjects))
+        return diff
 
     def __print_ent(self, ent):
         print("START OF ENT")
