@@ -47,6 +47,9 @@ class Optimizer:
         # --------------- Debuging/profiling ------------------------
         self.use_multiprocessing = False
         self.profiling = False
+        # --------------- Multiple initializations ------------------
+        # set this to 1 to diable this feature
+        self.num_inits = 10
         # --------------- Mutation parameters -----------------------
         self.use_crossover = True
         # I don't expect crossover to be effective alone, so better keep this on: 
@@ -58,26 +61,28 @@ class Optimizer:
         # Chance to actually do a course mutation on an given ent
         self.course_mutation_chance = 0.4
         # mutate fit slots less
+        # set to 1 to disable this feature
         self.fit_slots_mut_rate = 0.5
-
-        # I am lazy
-        self.gen_num = 0
 
     def run(self, reqs, prefered_subjects):
         s = time.time()
         teachers = list(prefered_subjects.keys())
-        curr_gen_ents = self.__generate_initial_ents(reqs, teachers)
+        inits = []
+        # try a few initializations
+        for i in range(self.num_inits):
+            inits.append(self.__generate_initial_ents(reqs, teachers))
+        inits.sort(key=lambda x: self.__fitness_of_generation(x, prefered_subjects), reverse=True)
+        curr_gen_ents = inits[0]
         top_ents_fitnesses = []
         worst_ents_fitnesses = []
         top_ever_ent = []
         pool = multiprocessing.Pool(multiprocessing.cpu_count())
         for i in range(self.num_gens):
-            self.gen_num = i
             # increase exploration after a few generations
             # To discuss: Ist das wirklich die richtige Veränderung? Hatten wir nicht z.B.
             # bei swarm-algorithms, dass die Schritte immer kleiner werden?
             # idk tbh. Vielleicht auch ganz gut so..
-            if i >= 300 and self.mutation_rate < 1:
+            if i >= 200 and self.mutation_rate < 1:
                 self.mutation_rate += 0.01
             a = time.time()
             # copy needed in order for the mutation and crossing not to mess with the old generation
@@ -433,6 +438,13 @@ class Optimizer:
             # cache the fitness value of the ent
             self.fitness_cache[str(ent)] = score
             return score
+
+    # currently the fitness a gen is just the sum of the fitnesses of the ents in that gen 
+    # but other things (like e.g. fitness of top ent, diversity within the ents of a generation) could be the better
+    # measure of fitness of a generation
+    def __fitness_of_generation(self, generation, preferred_subjects):
+        fitnesses = list(map(lambda x: self.__fitness(x, preferred_subjects), generation))
+        return sum(fitnesses)
 
     def __print_ent(self, ent):
         print("START OF ENT")
