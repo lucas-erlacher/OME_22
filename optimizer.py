@@ -344,8 +344,10 @@ class Optimizer:
             num_classes = len(parent_1)
             # construct the children
             for i in range(num_classes):
-                num = random.uniform(0, 1)
-                if num < 0.5: 
+                # idea: give child_1 all the good class_timetable and child_2 all the bad ones
+                f_1 = self.__fitness([parent_1[i]], prefered_subjects)
+                f_2 = self.__fitness([parent_2[i]], prefered_subjects)
+                if f_1 >= f_2:
                     child_1.append(parent_1[i])
                     child_2.append(parent_2[i])
                 else:
