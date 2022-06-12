@@ -406,7 +406,11 @@ class Optimizer:
         return l
       except (Exception):
         return l
-      
+
+
+    ##################################             ACHTUNG!!          ##########################################
+    # The parameter ent can contain many or just one class_timetable 
+    # (e.g. cross_over_batch invokes __fitness with an ent that contiains only one class_timetable) 
     def __fitness(self, ent, prefered_subjects):
         if ent == []:
             return 0

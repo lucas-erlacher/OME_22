@@ -2,6 +2,8 @@
 
 # TODOs
 (number indicates priority)
+## (0) Add more criteria to fitness function 
+e.g. teachers don't like gaps, etc.
 ## (1) Benchmark setups of old/new mutation with/wo crossover and decide which ones are effective
 ## (2) Check wether precalculating fitness before sorting improves it. 
 Laurent suspects it might not memo the result and calculates fitness nlogn times.
