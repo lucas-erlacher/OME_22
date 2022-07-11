@@ -28,17 +28,22 @@ import time
 import multiprocessing
 import numpy as np
 import copy
-from typing import Tuple, List
+from typing import Tuple, List, Union
 
 Course = str
 Subject = str
 Class_name = str
 Teacher_name = str
 Teacher = Tuple[Teacher_name, List[Course]]
-Slot = Tuple[Course, Teacher_name]
-Class_table = List[Slot]
+Happyness = int # High Happyness => this slots contributes positively to the score
+# Should be a Tuple, but had to be changed due in order to support mutability
+Slot = List[Union[Course, Teacher_name, Happyness]]
+Class_table = Tuple[List[Slot]]
+Score = int
 Ent = List[Class_table]
-Population = List[Ent]
+# This should be a Tuple, but again python typing forces us to use this:
+Cache_Ent = List[Union[Ent, Score]]
+Population = List[Cache_Ent]
 Class_num = int
 Slot_pos = int
 
@@ -47,7 +52,7 @@ class Optimizer:
     def __init__(self, params):
         self.num_gens = params[0]
         self.num_ents = params[1]
-        self.fitness_cache = dict()
+        self.coll_subj = params[2]
         self.num_slots = 50
         # --------------- Debuging/profiling ------------------------
         self.use_multiprocessing = False
@@ -62,9 +67,12 @@ class Optimizer:
         self.replace_frac = 0  # turn off the feature by setting this to 0
         self.replace_freq = 20
         # --------------- Mutation parameters -----------------------
-        self.mutation_rate = 0.9
+        self.min_mutation_rate = 0.1
+        self.max_mutation_rate = 0.9
+        self.scaling_exponent = 3
         self.elitism_degree = 0.75
-        self.use_crossover = True
+        # might me unstable:
+        self.use_crossover = False
         # I don't expect crossover to be effective alone,
         # so better keep this on:
         self.use_mutation = True
@@ -74,12 +82,11 @@ class Optimizer:
         # to be mutated per iteration
         self.avg_course_mutations = 10
         # Chance to actually do a course mutation on an given ent
-        self.course_mutation_chance = 0.4
+        self.course_mutation_chance = 0.7
         # mutate fit slots less
         # THIS FEATURE ONLY HELPED IN THE BEGINNING BUT MADE NO
         # DIFFERENCE OVER MANY GENERATIONS
         # set to 1 to disable this feature
-        self.fit_slots_mut_rate = 1
 
     def run(self, reqs, prefered_subjects):
         s = time.time()
@@ -163,7 +170,7 @@ class Optimizer:
         # plot the evolution
         freeslots = 0
         for i in range(self.num_slots):
-            if top_ever_ent[-1][i][0] == "Free": freeslots = freeslots + 1
+            if top_ever_ent[0][-1][i][0] == "Free": freeslots = freeslots + 1
         print("Free slots in last class: " + str(freeslots))
         print("FITNESS OF TOP EVER SEEN ENT: " + str(self.__fitness(top_ever_ent, prefered_subjects)))
         plt.plot(top_ents_fitnesses, "g", label="top_ent of gen")
@@ -176,10 +183,10 @@ class Optimizer:
     def __generate_initial_ents(self, reqs, teachers):
         num_slots = 50
         num_classes = len(reqs)
-        ents = []
+        ents: Population = []
         for i in range(self.num_ents):
             # fill the school table with subjects
-            school_timetable = []
+            school_timetable = [[], self.__unset_score()]
             for j in range(num_classes):
                 curr_class_reqs = reqs[j][1]
                 expanded_reqs = self.__flatten(list(map(self.__expand, curr_class_reqs)))
@@ -187,12 +194,13 @@ class Optimizer:
                 if len(expanded_reqs) < num_slots:
                     expanded_reqs += ["Free"] * (num_slots - len(expanded_reqs))
                 random.shuffle(expanded_reqs)
-                school_timetable.append(expanded_reqs)
+                new_class_table = list(map((lambda x: [x, "", 0]), expanded_reqs))
+                school_timetable[0].append(new_class_table)
             # fill the school table with teachers
             for i in range(num_slots):
                 random.shuffle(teachers)
                 for j in range(num_classes):
-                    school_timetable[j][i] = (school_timetable[j][i], teachers[j])
+                    school_timetable[0][j][i][1] = teachers[j]
             ents.append(school_timetable)
         return ents
       
@@ -223,17 +231,12 @@ class Optimizer:
     # placements somewhere else, then removes some teacher placements and tries to find a
     # teacher for that slot.
     def mutate_batch(self, batch: Population):
-        res: List[Ent] = []
+        res: List[Cache_Ent] = []
         for input in batch:   
-            ent = input[0]
+            c_ent = input[0]
+            ent = c_ent[0]
             prefered_subjects = input[2]
             teachers: List[Teacher_name] = input[1]
-            # ---------------------- dropout -----------------------------
-            # randomely decide if ent is excluded from mutation
-            if random.uniform(0, 1) > self.mutation_rate:
-                res.append(ent)
-                continue
-            # --------------------- No dropout ---------------------------
             num_classes = len(ent)
             if random.uniform(0, 1) < self.course_mutation_chance :
                 # ---------------clear some courses and fill them back in ----------------
@@ -255,15 +258,14 @@ class Optimizer:
                     clear_class: Class_num = random.randint(0,num_classes - 1)
                     clear_slot: Slot_pos = random.randint(0,self.num_slots - 1)
                     if(ent[clear_class][clear_slot][0] == "Free"): continue
-                    # if the slot is already fit (teacher likes the subject he is teaching in the slot) then be more conservative with mutating it
-                    subj = ent[clear_class][clear_slot][0]
-                    teacher = ent[clear_class][clear_slot][1]
-                    if subj in prefered_subjects[teacher]:
-                        if random.uniform(0, 1) > self.fit_slots_mut_rate:
-                            continue
+                    # If the slot is happy, then likely skip
+                    if random.uniform(0,1) > self.__mut_chance_of(ent[clear_class][clear_slot][2]):
+                        continue
                     # put in fmbi, so we can add the course back in
                     fmbi_c.append((clear_class,ent[clear_class][clear_slot][0]))
-                    ent[clear_class][clear_slot] = ("Free",ent[clear_class][clear_slot][1])
+                    ent[clear_class][clear_slot][0] = "Free"
+                    # reset Happyness
+                    ent[clear_class][clear_slot][2] = 0
                 # refill step
                 while len(fmbi_c) > 0 :
                     filling = fmbi_c[-1]
@@ -271,7 +273,10 @@ class Optimizer:
                     assert(filling[1] != "Free")
                     refill_slot: Slot_pos = random.randint(0,self.num_slots - 1)
                     if(ent[refill_class][refill_slot][0] == "Free"):
-                        ent[refill_class][refill_slot] =(filling[1],ent[clear_class][clear_slot][1])
+                        if random.uniform(0,1) > self.__mut_chance_of(ent[refill_class][refill_slot][2]): continue
+                        ent[refill_class][refill_slot][0] = filling[1]
+                        # reset Happyness
+                        ent[refill_class][refill_slot][2] = 0
                         fmbi_c.pop()
             # --------- clear some teachers and greedily fill them back in ----------
             # Amount of teacher mutations:
@@ -287,14 +292,8 @@ class Optimizer:
                 clear_class: Class_num = random.randint(0,num_classes - 1)
                 clear_slot: Slot_pos = random.randint(0,self.num_slots - 1)
                 if ((ent[clear_class][clear_slot][0] == "Free") or (ent[clear_class][clear_slot][1] == "Refill")) : continue
-                # if the slot is already fit (teacher likes the subject he is teaching in the slot) then be more conservative with mutating it
-                subj = ent[clear_class][clear_slot][0]
-                teacher = ent[clear_class][clear_slot][1]
-                if subj in prefered_subjects[teacher]:
-                    if random.uniform(0, 1) > self.fit_slots_mut_rate:
-                        continue
-                # clear teacher assignment in slot 
-                ent[clear_class][clear_slot] = (ent[clear_class][clear_slot][0],"Refill")
+                if random.uniform(0,1) > self.__mut_chance_of(ent[clear_class][clear_slot][2]): continue 
+                ent[clear_class][clear_slot] = [ent[clear_class][clear_slot][0],"Refill",0]
                 # remember slot
                 fmbi_t.append((clear_class,clear_slot))
                 # fill them back in
@@ -315,9 +314,11 @@ class Optimizer:
                 if len(qualified)==0:
                     # suddently everybody is qualified :)
                     qualified = bored_teachers
-                ent[refill_class][refill_slot] = (ent[refill_class][refill_slot][0],random.choice(qualified))
+                ent[refill_class][refill_slot][1] = random.choice(qualified)
+                # reset Happyness
+                ent[refill_class][refill_slot][2] = 0
                 fmbi_t.pop()
-            res.append(ent)
+            res.append([ent,self.__unset_score()])
         return res
 
     def __cross_over_all(self, ents, teachers, prefered_subjects, pool):
@@ -343,27 +344,27 @@ class Optimizer:
     def cross_over_batch(self, batch):
         res = []
         for input in batch:
-            ents = input[0]
+            c_ents = input[0]
             teachers = input[1]
             prefered_subjects = input[2]
-            parent_1 = ents[0]
-            parent_2 = ents[1]
+            parent_1 = c_ents[0]
+            parent_2 = c_ents[1]
             child_1 = []
             child_2 = []
             num_classes = len(parent_1)
             # construct the children
             for i in range(num_classes):
                 # idea: give child_1 all the good class_timetable and child_2 all the bad ones
-                f_1 = self.__fitness([parent_1[i]], prefered_subjects)
-                f_2 = self.__fitness([parent_2[i]], prefered_subjects)
+                f_1 = self.__fitness([[parent_1[0][i]],self.__unset_score()], prefered_subjects)
+                f_2 = self.__fitness([[parent_2[0][i]],self.__unset_score()], prefered_subjects)
                 if f_1 >= f_2:
-                    child_1.append(parent_1[i])
-                    child_2.append(parent_2[i])
+                    child_1.append(parent_1[0][i])
+                    child_2.append(parent_2[0][i])
                 else:
-                    child_1.append(parent_2[i])
-                    child_2.append(parent_1[i])
-            child_1 = self.__fix_teacher_conflicts(child_1, teachers, prefered_subjects)
-            child_2 = self.__fix_teacher_conflicts(child_2, teachers, prefered_subjects)
+                    child_1.append(parent_2[0][i])
+                    child_2.append(parent_1[0][i])
+            child_1 = self.__fix_teacher_conflicts([child_1,self.__unset_score()], teachers, prefered_subjects)
+            child_2 = self.__fix_teacher_conflicts([child_2,self.__unset_score()], teachers, prefered_subjects)
             res.append([child_1, child_2])
         return res
 
@@ -382,7 +383,8 @@ class Optimizer:
         else: 
             return True
 
-    def __fix_teacher_conflicts(self, ent, teachers, prefered_subjects):
+    def __fix_teacher_conflicts(self, c_ent, teachers, prefered_subjects):
+        ent = c_ent[0]
         num_classes = len(ent)
         num_slots = 50
         for i in range(2):
@@ -398,16 +400,16 @@ class Optimizer:
                         qualified = list(filter(lambda x: subj in prefered_subjects[x], leftover_teachers))
                         if len(qualified) > 0:
                             picked_teacher = qualified[0]
-                            ent[k][i] = (subj, qualified[0])
+                            ent[k][i] = [subj, qualified[0], 0]
                         else:
                             if len(leftover_teachers) == 1:
                                 # edge case
                                 picked_teacher = leftover_teachers[0]
                             else:
                                 picked_teacher = leftover_teachers[random.randrange(0, len(leftover_teachers) - 1)]
-                            ent[k][i] = (subj, picked_teacher)
+                            ent[k][i] = [subj, picked_teacher, 0]
                         leftover_teachers.remove(picked_teacher) 
-        return ent
+        return [ent,self.__unset_score()]
 
     def __remove_if_there(self, elem, l):
       try:
@@ -420,33 +422,36 @@ class Optimizer:
     ##################################             ACHTUNG!!          ##########################################
     # The parameter ent can contain many or just one class_timetable 
     # (e.g. cross_over_batch invokes __fitness with an ent that contiains only one class_timetable) 
-    def __fitness(self, ent, prefered_subjects):
-        if ent == []:
-            return 0
+    def __fitness(self, c_ent, prefered_subjects):
         # caching
-        if str(ent) in self.fitness_cache:
-            return self.fitness_cache[str(ent)]
+        if c_ent == [] :
+            return 0 # self.__unset_score()
+        if c_ent[1] != self.__unset_score():
+            return c_ent[1]
         else:
+            ent = c_ent[0]
             num_classes = len(ent)
             num_slots = 50
             score = 0
             # weights of the different factors that contribute to the fitness of an ent
             prefered_subject_weight = 1
             gaps_weight = 0.2
-            # --------------------- Teacher <-> subject preferences ----------------
+            # --------------------- Teacher <-> subject preferences? ----------------
             for i in range(num_classes):
                 for j in range(num_slots):
                     subject = ent[i][j][0]
                     teacher = ent[i][j][1]
                     if subject in prefered_subjects[teacher]:
                         score += prefered_subject_weight * 1
-            # minus points for gaps (i.e. a free in between two lessons or if first lesson of the day is free)
-            # compute for all gaps their length and whether they are followed by a lesson or not
-            # --------------------- Little gaps in class plans -------------------
+                        # Add Happyness to slot
+                        ent[i][j][2] += 2
+                    else:
+                        ent[i][j][2] -= 2
+            # --------------------- Little gaps in class plans? -------------------
             for i in range(num_classes):
                 # for each day in the timetable
                 for k in range(5):
-                    #Find earliest slot having classes
+                    # Find earliest slot having classes
                     earliest_slot = k * 10
                     latest_slot = (k+1) * 10 - 1
                     while((ent[i][earliest_slot][0] == "Free") and (earliest_slot < latest_slot)):
@@ -454,33 +459,15 @@ class Optimizer:
                     # Find latest slot having classes
                     while(ent[i][latest_slot][0] == "Free" and (earliest_slot < latest_slot)):
                         latest_slot -= 1
+                    for j in range(earliest_slot,latest_slot):
+                        if ent[i][j][0] == "Free":
+                            # Remove Happyness
+                            ent[i][j][2] -= 1 
                     relevant_part = ent[earliest_slot:latest_slot]
                     freelist = list(filter(lambda x: x == "Free", relevant_part))
                     score -= len(freelist)
-            # gap_info = []
-            # for i in range(num_classes):
-            #     # for each day in the timetable
-            #     for k in range(5):
-            #         len_counter = 0
-            #         # for each slot in that day
-            #         for j in range(k * 10, (k + 1) * 10):
-            #             if ent[i][j][0] == "Free":
-            #                 len_counter += 1
-            #                 # if last slot of the day is free then we need to save the gap and not rely on this being done when the next lesson filled slot comes
-            #                 if j == ((k + 1) * 10) - 1:
-            #                     gap_info.append((len_counter, False))
-            #             else:
-            #                 # if this lesson was preceeded by a gap
-            #                 if not (len_counter == 0):
-            #                     gap_info.append((len_counter, True))
-            #                     len_counter = 0
-            # # only penlize gaps that are followed by a lesson
-            # gap_info = list(filter(lambda x: x[1], gap_info))
-            # gap_lens = list(map(lambda x: x[0], gap_info))
-            # for gap_len in gap_lens:
-            #     score -= gaps_weight * gap_len
-            # # cache the fitness value of the ent
-            self.fitness_cache[str(ent)] = score
+            # Cache score
+            c_ent[1] = score
             return score
 
     # currently the fitness a gen is just the sum of the fitnesses of the ents in that gen 
@@ -501,3 +488,13 @@ class Optimizer:
         tmp_ents = ents
         tmp_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects), reverse=True)
         print(list(map(lambda x: self.__fitness(x, prefered_subjects), tmp_ents)))
+
+    def __unset_score(self): return -1_000_000
+
+    def __mut_chance_of(self,happyness):
+        bounded_h = min(10,max(-10,happyness))
+        h_float = float(bounded_h)
+        scaled_h = ((h_float*(-1)) + 10)/20
+        mut_range = self.max_mutation_rate - self.min_mutation_rate
+        unscaled_chance = scaled_h * mut_range + self.min_mutation_rate
+        return unscaled_chance**self.scaling_exponent

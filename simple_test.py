@@ -1,5 +1,7 @@
 from optimizer import Optimizer
 
+# under fitness of 2022-07-12, this should have a max of 768
+
 if __name__ == "__main__":
     class_reqs = [
         ("1A", [("A", 4), ("B", 4), ("C", 4), ("D", 4), ("E", 4), ("F", 4), ("G", 4), ("H", 4)]),
@@ -53,6 +55,6 @@ if __name__ == "__main__":
         "Mr. W": ["E", "F"],
         "Mr. X": ["G", "H"],     
     }
-    params = [1000, 100, 0.9, 0.75]
+    params = [100, 10, []]
     opt = Optimizer(params)
     opt.run(class_reqs, prefered_subjects)
