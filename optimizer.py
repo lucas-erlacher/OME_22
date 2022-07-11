@@ -130,8 +130,6 @@ class Optimizer:
             num_old_gen = math.floor(self.num_ents * self.elitism_degree)
             num_curr_gen = self.num_ents - num_old_gen
             x = time.time()
-            # I'm not sure if the key is memoized here to save RAM?
-            # TODO check if we have performance improvement if we evaluate and then sort
             old_gen_ents.sort(key=lambda x: self.__fitness(x, prefered_subjects), reverse=True)
             y = time.time()
             if self.profiling: print("SORTING OLD ENTS: " + str(y-x))
