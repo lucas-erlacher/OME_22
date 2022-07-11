@@ -31,6 +31,8 @@ import copy
 from typing import Tuple, List
 
 Course = str
+Subject = str
+Class_name = str
 Teacher_name = str
 Teacher = Tuple[Teacher_name, List[Course]]
 Slot = Tuple[Course, Teacher_name]
@@ -45,8 +47,6 @@ class Optimizer:
     def __init__(self, params):
         self.num_gens = params[0]
         self.num_ents = params[1]
-        self.mutation_rate = params[2]
-        self.elitism_degree = params[3]
         self.fitness_cache = dict()
         self.num_slots = 50
         # --------------- Debuging/profiling ------------------------
@@ -62,6 +62,8 @@ class Optimizer:
         self.replace_frac = 0  # turn off the feature by setting this to 0
         self.replace_freq = 20
         # --------------- Mutation parameters -----------------------
+        self.mutation_rate = 0.9
+        self.elitism_degree = 0.75
         self.use_crossover = True
         # I don't expect crossover to be effective alone,
         # so better keep this on:
@@ -478,7 +480,7 @@ class Optimizer:
             # for gap_len in gap_lens:
             #     score -= gaps_weight * gap_len
             # # cache the fitness value of the ent
-            # self.fitness_cache[str(ent)] = score
+            self.fitness_cache[str(ent)] = score
             return score
 
     # currently the fitness a gen is just the sum of the fitnesses of the ents in that gen 
