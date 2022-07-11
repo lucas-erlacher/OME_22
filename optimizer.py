@@ -1,22 +1,26 @@
-# All teachers can in theory teach all subjects but are better in some subjects than others (relaxation of "teacher can only teach subjects x,y and z")
+# All teachers can in theory teach all subjects but are better in some subjects
+# than others (relaxation of "teacher can only teach subjects x,y and z")
 # There must be at least as many teachers as there are classes
-# Teachers are currently being assigned to Free slots but that just means that the teacher has a Free hour (just like the class)
+# Teachers are currently being assigned to Free slots but that just means
+# that the teacher has a Free hour (just like the class)
 # num_ent must be even (simplifies crossing over method a bit)
 
 # TODO:
 # FITNESS FACTORS
-#   fitness function: teachers dont like gaps (i.e. Free lessons they are assigned to)
+#   fitness function: teachers dont like gaps
+# (i.e. Free lessons they are assigned to)
 # GENERAL
 #   try more genetic algorithm things such as speciation
 # PERFORMANCE
 #   why the hell is the multiprocessing.Pool getting slower in each generation?
 #   multiprocess more things (e.g. the mapping of fitness onto ents)
 #   more optimizations (?)
-#   find threshold (in terms of generation size) when to use multiprocessing (provided you fix the slowing down bug)
+#   find threshold (in terms of generation size) when to use multiprocessing
+# (provided you fix the slowing down bug)
 # EVALUATION
-#   measure baseline (= that FET program) performance 
+#   measure baseline (= that FET program) performance
 
-from itertools import count
+# from itertools import count
 import math
 import random
 import matplotlib.pyplot as plt
@@ -28,27 +32,29 @@ from typing import Tuple, List
 
 Course = str
 Teacher_name = str
-Teacher = Tuple[Teacher_name,List[Course]]
-Slot = Tuple[Course,Teacher_name]
+Teacher = Tuple[Teacher_name, List[Course]]
+Slot = Tuple[Course, Teacher_name]
 Class_table = List[Slot]
 Ent = List[Class_table]
 Population = List[Ent]
 Class_num = int
 Slot_pos = int
 
+
 class Optimizer:
     def __init__(self, params):
-        self.num_gens = params[0] 
+        self.num_gens = params[0]
         self.num_ents = params[1]
         self.mutation_rate = params[2]
         self.elitism_degree = params[3]
         self.fitness_cache = dict()
-        self.num_slots = 50 
+        self.num_slots = 50
         # --------------- Debuging/profiling ------------------------
         self.use_multiprocessing = False
-        self.profiling = False
+        self.profiling = True
         # --------------- Multiple initializations ------------------
-        # THIS FEATURE DIDNT REALLY HELP BUT IT ALSO DOESNT INCREASE RUNTIME MUCH SO I JUST KEPT IT 
+        # THIS FEATURE DIDNT REALLY HELP BUT IT ALSO DOESNT INCREASE RUNTIME
+        # MUCH SO I JUST KEPT IT.
         # set this to 1 to disable this feature
         self.num_inits = 100
         # --------------- Periodically boost diversity --------------
@@ -57,16 +63,19 @@ class Optimizer:
         self.replace_freq = 20
         # --------------- Mutation parameters -----------------------
         self.use_crossover = True
-        # I don't expect crossover to be effective alone, so better keep this on: 
+        # I don't expect crossover to be effective alone,
+        # so better keep this on:
         self.use_mutation = True
         # Average amount of teacher placements to be mutated per iteration
         self.avg_teacher_mutations = 60
-        # Average amount of course<->class<->slot bindings to be mutated per iteration
+        # Average amount of course<->class<->slot bindings
+        # to be mutated per iteration
         self.avg_course_mutations = 10
         # Chance to actually do a course mutation on an given ent
         self.course_mutation_chance = 0.4
         # mutate fit slots less
-        # THIS FEATURE ONLY HELPED IN THE BEGINNING BUT MADE NO DIFFERENCE OVER MANY GENERATIONS
+        # THIS FEATURE ONLY HELPED IN THE BEGINNING BUT MADE NO
+        # DIFFERENCE OVER MANY GENERATIONS
         # set to 1 to disable this feature
         self.fit_slots_mut_rate = 1
 
@@ -424,7 +433,7 @@ class Optimizer:
             # weights of the different factors that contribute to the fitness of an ent
             prefered_subject_weight = 1
             gaps_weight = 0.2
-            # plus points if a teacher teaches a subject he is good at
+            # --------------------- Teacher <-> subject preferences ----------------
             for i in range(num_classes):
                 for j in range(num_slots):
                     subject = ent[i][j][0]
@@ -432,31 +441,46 @@ class Optimizer:
                     if subject in prefered_subjects[teacher]:
                         score += prefered_subject_weight * 1
             # minus points for gaps (i.e. a free in between two lessons or if first lesson of the day is free)
-            # compute for all gaps their length and whether they are followed by a lesson or not 
-            gap_info = []
+            # compute for all gaps their length and whether they are followed by a lesson or not
+            # --------------------- Little gaps in class plans -------------------
             for i in range(num_classes):
                 # for each day in the timetable
                 for k in range(5):
-                    len_counter = 0
-                    # for each slot in that day
-                    for j in range(k * 10, (k + 1) * 10):
-                        if ent[i][j][0] == "Free":
-                            len_counter += 1
-                            # if last slot of the day is free then we need to save the gap and not rely on this being done when the next lesson filled slot comes
-                            if j == ((k + 1) * 10) - 1:
-                                gap_info.append((len_counter, False))
-                        else:
-                            # if this lesson was preceeded by a gap
-                            if not (len_counter == 0):
-                                gap_info.append((len_counter, True))
-                                len_counter = 0
-            # only penlize gaps that are followed by a lesson
-            gap_info = list(filter(lambda x: x[1], gap_info))
-            gap_lens = list(map(lambda x: x[0], gap_info))
-            for gap_len in gap_lens:
-                score -= gaps_weight * gap_len
-            # cache the fitness value of the ent
-            self.fitness_cache[str(ent)] = score
+                    #Find earliest slot having classes
+                    earliest_slot = k * 10
+                    latest_slot = (k+1) * 10 - 1
+                    while((ent[i][earliest_slot][0] == "Free") and (earliest_slot < latest_slot)):
+                        earliest_slot += 1
+                    # Find latest slot having classes
+                    while(ent[i][latest_slot][0] == "Free" and (earliest_slot < latest_slot)):
+                        latest_slot -= 1
+                    relevant_part = ent[earliest_slot:latest_slot]
+                    freelist = list(filter(lambda x: x == "Free", relevant_part))
+                    score -= len(freelist)
+            # gap_info = []
+            # for i in range(num_classes):
+            #     # for each day in the timetable
+            #     for k in range(5):
+            #         len_counter = 0
+            #         # for each slot in that day
+            #         for j in range(k * 10, (k + 1) * 10):
+            #             if ent[i][j][0] == "Free":
+            #                 len_counter += 1
+            #                 # if last slot of the day is free then we need to save the gap and not rely on this being done when the next lesson filled slot comes
+            #                 if j == ((k + 1) * 10) - 1:
+            #                     gap_info.append((len_counter, False))
+            #             else:
+            #                 # if this lesson was preceeded by a gap
+            #                 if not (len_counter == 0):
+            #                     gap_info.append((len_counter, True))
+            #                     len_counter = 0
+            # # only penlize gaps that are followed by a lesson
+            # gap_info = list(filter(lambda x: x[1], gap_info))
+            # gap_lens = list(map(lambda x: x[0], gap_info))
+            # for gap_len in gap_lens:
+            #     score -= gaps_weight * gap_len
+            # # cache the fitness value of the ent
+            # self.fitness_cache[str(ent)] = score
             return score
 
     # currently the fitness a gen is just the sum of the fitnesses of the ents in that gen 
