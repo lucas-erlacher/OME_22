@@ -51,7 +51,7 @@ if __name__ == "__main__":
             new_req = (subj_name, num_lessons)
             lessons_left -= num_lessons
             reqs_of_curr_class.append(new_req)
-        class_reqs.append((name_of_class, reqs_of_curr_class))
+        class_reqs.append((curr_class_name, reqs_of_curr_class))
 
     # -------------generate prefered_subjects -------------------
     # lower bound set, such that availability is ensured
@@ -79,8 +79,8 @@ if __name__ == "__main__":
     print("Number of classes: " + str(num_classes))
     print("Number of subjects: " + str(num_subjects))
     print("Number of teachers: " + str(num_teachers))
-    num_gens = 10
-    num_ents = 100
+    num_gens = 20
+    num_ents = 10
     print("------- Optimization parameters ----------")
     print("Number of generations: " + str(num_gens))
     print("Number of entities: " + str(num_ents))

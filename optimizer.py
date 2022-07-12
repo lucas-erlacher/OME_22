@@ -21,6 +21,7 @@
 #   measure baseline (= that FET program) performance
 
 # from itertools import count
+import sys
 import math
 import random
 import matplotlib.pyplot as plt
@@ -67,20 +68,23 @@ class Optimizer:
         self.replace_frac = 0  # turn off the feature by setting this to 0
         self.replace_freq = 20
         # --------------- Mutation parameters -----------------------
+        self.mutation_rate = 0.8
         self.min_mutation_rate = 0.1
         self.max_mutation_rate = 0.9
         self.scaling_exponent = 3
         self.elitism_degree = 0.75
+        self.max_happyness = 100
+        self.min_happyness = -100
         # might me unstable:
         self.use_crossover = False
         # I don't expect crossover to be effective alone,
         # so better keep this on:
         self.use_mutation = True
         # Average amount of teacher placements to be mutated per iteration
-        self.avg_teacher_mutations = 60
+        self.avg_teacher_mutations = 80
         # Average amount of course<->class<->slot bindings
         # to be mutated per iteration
-        self.avg_course_mutations = 10
+        self.avg_course_mutations = 20
         # Chance to actually do a course mutation on an given ent
         self.course_mutation_chance = 0.7
         # mutate fit slots less
@@ -168,10 +172,12 @@ class Optimizer:
             print("current, best fitness: " + str(top_ents_fitnesses[-1]))
             if self.profiling: print()
         # plot the evolution
-        freeslots = 0
-        for i in range(self.num_slots):
-            if top_ever_ent[0][-1][i][0] == "Free": freeslots = freeslots + 1
-        print("Free slots in last class: " + str(freeslots))
+        #freeslots = 0
+        #for i in range(self.num_slots):
+        #    if top_ever_ent[0][-1][i][0] == "Free": freeslots = freeslots + 1
+        #print("Free slots in last class: " + str(freeslots))
+        print("Result: ")
+        self.__print_ent(top_ever_ent[0],reqs)
         print("FITNESS OF TOP EVER SEEN ENT: " + str(self.__fitness(top_ever_ent, prefered_subjects)))
         plt.plot(top_ents_fitnesses, "g", label="top_ent of gen")
         plt.plot(worst_ents_fitnesses, "r", label="worst_ent of gen")
@@ -255,14 +261,20 @@ class Optimizer:
                     counter += 1
                     if counter == 1500:
                         break
-                    clear_class: Class_num = random.randint(0,num_classes - 1)
-                    clear_slot: Slot_pos = random.randint(0,self.num_slots - 1)
-                    if(ent[clear_class][clear_slot][0] == "Free"): continue
+                    unhappy = self.__pick_unhappy_nonfree_slot(ent,prefered_subjects)
+                    clear_class: Class_num = unhappy[0]
+                    clear_slot: Slot_pos = unhappy[1]
+                    happyness = ent[clear_class][clear_slot][2] 
+                    if happyness > 80:
+                        if random.uniform(0,1) > (happyness-80)/20.0:
+                            n_c_mut -= 1
+                            continue;
+                    assert(ent[clear_class][clear_slot][0] != "Free")
                     # If the slot is happy, then likely skip
-                    if random.uniform(0,1) > self.__mut_chance_of(ent[clear_class][clear_slot][2]):
-                        continue
+                    #if random.uniform(0,1) > self.__mut_chance_of(ent[clear_class][clear_slot][2]):
+                    #   continue
                     # put in fmbi, so we can add the course back in
-                    fmbi_c.append((clear_class,ent[clear_class][clear_slot][0]))
+                    fmbi_c.append((clear_class, ent[clear_class][clear_slot][0]))
                     ent[clear_class][clear_slot][0] = "Free"
                     # reset Happyness
                     ent[clear_class][clear_slot][2] = 0
@@ -271,9 +283,9 @@ class Optimizer:
                     filling = fmbi_c[-1]
                     refill_class = filling[0]
                     assert(filling[1] != "Free")
-                    refill_slot: Slot_pos = random.randint(0,self.num_slots - 1)
+                    refill_slot: Slot_pos = self.__pick_unhappy_free_slot(ent,refill_class)
                     if(ent[refill_class][refill_slot][0] == "Free"):
-                        if random.uniform(0,1) > self.__mut_chance_of(ent[refill_class][refill_slot][2]): continue
+                        # if random.uniform(0,1) > self.__mut_chance_of(ent[refill_class][refill_slot][2]): continue
                         ent[refill_class][refill_slot][0] = filling[1]
                         # reset Happyness
                         ent[refill_class][refill_slot][2] = 0
@@ -289,10 +301,16 @@ class Optimizer:
                 counter += 1
                 if counter == 1500:
                     break
-                clear_class: Class_num = random.randint(0,num_classes - 1)
-                clear_slot: Slot_pos = random.randint(0,self.num_slots - 1)
-                if ((ent[clear_class][clear_slot][0] == "Free") or (ent[clear_class][clear_slot][1] == "Refill")) : continue
-                if random.uniform(0,1) > self.__mut_chance_of(ent[clear_class][clear_slot][2]): continue 
+                unhappy = self.__pick_unhappy_nonfree_slot(ent,prefered_subjects)
+                clear_class: Class_num = unhappy[0]
+                clear_slot: Slot_pos = unhappy[1]
+                happyness = ent[clear_class][clear_slot][2] 
+                if happyness > 80:
+                    if random.uniform(0,1) > (happyness-80)/20.0:
+                        n_t_mut -= 1
+                        continue;
+                # assert((ent[clear_class][clear_slot][0] != "Free") and (ent[clear_class][clear_slot][1] != "Refill"))
+                # if random.uniform(0,1) > self.__mut_chance_of(ent[clear_class][clear_slot][2]): continue 
                 ent[clear_class][clear_slot] = [ent[clear_class][clear_slot][0],"Refill",0]
                 # remember slot
                 fmbi_t.append((clear_class,clear_slot))
@@ -301,7 +319,7 @@ class Optimizer:
                 tbf = fmbi_t[-1] #to be filled
                 refill_class = tbf[0]
                 refill_slot = tbf[1]
-                assert(ent[refill_class][refill_slot][1] == "Refill")
+                # assert(ent[refill_class][refill_slot][1] == "Refill")
                 # teachers, who don't teach during clear_slot
                 bored_teachers = list(copy.deepcopy(teachers))
                 for i in range(num_classes):
@@ -444,9 +462,12 @@ class Optimizer:
                     if subject in prefered_subjects[teacher]:
                         score += prefered_subject_weight * 1
                         # Add Happyness to slot
-                        ent[i][j][2] += 2
+                        ent[i][j][2] = self.__new_happyness(ent[i][j][2],0.3)
+                        self.__change_avg_t_m(-0.001)
                     else:
-                        ent[i][j][2] -= 2
+                        if subject != "Free" :
+                            ent[i][j][2] = self.__new_happyness(ent[i][j][2],-0.2)
+                            self.__change_avg_t_m(0.1)
             # --------------------- Little gaps in class plans? -------------------
             for i in range(num_classes):
                 # for each day in the timetable
@@ -459,12 +480,16 @@ class Optimizer:
                     # Find latest slot having classes
                     while(ent[i][latest_slot][0] == "Free" and (earliest_slot < latest_slot)):
                         latest_slot -= 1
+                    self.__change_avg_c_m(-0.001)
                     for j in range(earliest_slot,latest_slot):
                         if ent[i][j][0] == "Free":
                             # Remove Happyness
-                            ent[i][j][2] -= 1 
-                    relevant_part = ent[earliest_slot:latest_slot]
-                    freelist = list(filter(lambda x: x == "Free", relevant_part))
+                            ent[i][j][2] = self.__new_happyness(ent[i][j][2],-0.1)
+                            ent[i][earliest_slot][2] = self.__new_happyness(ent[i][earliest_slot][2],-0.1)
+                            ent[i][latest_slot][2] = self.__new_happyness(ent[i][latest_slot][2],-0.1)
+                            self.__change_avg_c_m(0.40)
+                    relevant_part = ent[i][earliest_slot:latest_slot]
+                    freelist = list(filter(lambda x: x[0] == "Free", relevant_part))
                     score -= len(freelist)
             # Cache score
             c_ent[1] = score
@@ -477,12 +502,23 @@ class Optimizer:
         fitnesses = list(map(lambda x: self.__fitness(x, preferred_subjects), generation))
         return sum(fitnesses)
 
-    def __print_ent(self, ent):
+    def __print_ent(self, ent, reqs):
         print("START OF ENT")
-        for school_class in ent:
-            for slot in school_class:
-                print(slot, sep=",")
+        for num_class in range(len(ent)):
+            print("Name of Class: " + reqs[num_class][0])
+            for day in range(5):
+                print("   Day " + str(day))
+                for dayslot in range(10):
+                    slot = day * 10 + dayslot
+                    self.__print_slot(ent[num_class][slot])
             print()
+        print("END OF ENT")
+
+    def __print_slot(self,slot):
+        if slot[0] == "Free":
+            print("Free , " + str(slot[2]) )
+        else:
+            print(str(slot))
 
     def __print_sorted_fitnesses(self, ents, prefered_subjects):
         tmp_ents = ents
@@ -492,9 +528,76 @@ class Optimizer:
     def __unset_score(self): return -1_000_000
 
     def __mut_chance_of(self,happyness):
-        bounded_h = min(10,max(-10,happyness))
+        upper_bound = 50
+        lower_bound = -50
+        bounded_h = min(upper_bound,max(lower_bound,happyness))
         h_float = float(bounded_h)
-        scaled_h = ((h_float*(-1)) + 10)/20
+        scaled_h = ((h_float*(-1)) + upper_bound)/(upper_bound - lower_bound)
         mut_range = self.max_mutation_rate - self.min_mutation_rate
         unscaled_chance = scaled_h * mut_range + self.min_mutation_rate
         return unscaled_chance**self.scaling_exponent
+
+    def __pick_unhappy_nonfree_slot(self,ent,prefered_subjects):
+            min = sys.maxsize
+            max_slot_skip = 5
+            slot_pos = 0
+            class_pos = 0
+            for class_num in range(len(ent)):
+                slot_num = random.randint(0,max_slot_skip)
+                while slot_num < len(ent[class_num]):
+                    if ((ent[class_num][slot_num][0] == "Free") or (ent[class_num][slot_num][1] == "Refill")):
+                        # skip a few entries
+                        slot_num += random.randint(1,max_slot_skip)
+                        continue
+                    if min > ent[class_num][slot_num][2]:
+                        min = ent[class_num][slot_num][2]
+                        class_pos = class_num
+                        slot_pos = slot_num
+                    # skip a few entries
+                    slot_num += random.randint(1,max_slot_skip)
+            #if (ent[class_pos][slot_pos][0] in prefered_subjects[ent[class_pos][slot_pos][1]]):
+            #   print("strange")
+            return (class_pos, slot_pos)
+
+    def __pick_unhappy_free_slot(self,ent,class_num):
+        min = sys.maxsize
+        max_slot_skip = 1
+        slot_pos = 0
+        slot_num = random.randint(0,max_slot_skip)
+        while slot_num < len(ent[class_num]):
+            if (ent[class_num][slot_num][0] != "Free"):
+                # skip a few entries
+                slot_num += random.randint(1,max_slot_skip)
+                continue
+            if min > ent[class_num][slot_num][2]:
+                min = ent[class_num][slot_num][2]
+                slot_pos = slot_num
+                # skip a few entries
+            slot_num += random.randint(1,max_slot_skip)
+        return slot_pos
+    def __new_happyness(self,old_happyness,opinion):
+        if opinion > 0.0:
+            new_happ = opinion * self.max_happyness + (1.0 - opinion) * old_happyness
+        else:
+            new_happ = (-1) * opinion * self.min_happyness + (1.0 + opinion) * old_happyness
+        return int(new_happ)
+
+    def __change_avg_c_m(self,val):
+        if (random.uniform(0,1) < 0.05):
+            min_c_m = 10
+            max_c_m = 50
+            if val > 0.0:
+                new_acm = val * max_c_m + (1.0 - val) * self.avg_course_mutations
+            else:
+                new_acm = (-1) * val * min_c_m + (1.0 + val) * self.avg_course_mutations
+            self.avg_course_mutations = int(new_acm) 
+
+    def __change_avg_t_m(self,val):
+        if (random.uniform(0,1) < 0.1):
+            min_t_m = 10
+            max_t_m = 100
+            if val > 0.0:
+                new_atm = val * max_t_m + (1.0 - val) * self.avg_teacher_mutations
+            else:
+                new_atm = (-1) * val * min_t_m + (1.0 + val) * self.avg_teacher_mutations
+            self.avg_teacher_mutations = int(new_atm) 
