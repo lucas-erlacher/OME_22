@@ -72,10 +72,10 @@ class Optimizer:
         self.min_mutation_rate = 0.1
         self.max_mutation_rate = 0.9
         self.scaling_exponent = 3
-        self.elitism_degree = 0.75
+        self.elitism_degree = 0.2
         self.max_happyness = 100
         self.min_happyness = -100
-        # might me unstable:
+        # This affects collaborativeness so badly, the algorithms stays constant:
         self.use_crossover = False
         # I don't expect crossover to be effective alone,
         # so better keep this on:
@@ -268,8 +268,8 @@ class Optimizer:
                     if happyness > 80:
                         if random.uniform(0,1) > (happyness-80)/20.0:
                             n_c_mut -= 1
-                            continue;
-                    assert(ent[clear_class][clear_slot][0] != "Free")
+                            continue
+                    # assert(ent[clear_class][clear_slot][0] != "Free")
                     # If the slot is happy, then likely skip
                     #if random.uniform(0,1) > self.__mut_chance_of(ent[clear_class][clear_slot][2]):
                     #   continue
@@ -282,7 +282,7 @@ class Optimizer:
                 while len(fmbi_c) > 0 :
                     filling = fmbi_c[-1]
                     refill_class = filling[0]
-                    assert(filling[1] != "Free")
+                    # assert(filling[1] != "Free")
                     refill_slot: Slot_pos = self.__pick_unhappy_free_slot(ent,refill_class)
                     if(ent[refill_class][refill_slot][0] == "Free"):
                         # if random.uniform(0,1) > self.__mut_chance_of(ent[refill_class][refill_slot][2]): continue
@@ -308,7 +308,7 @@ class Optimizer:
                 if happyness > 80:
                     if random.uniform(0,1) > (happyness-80)/20.0:
                         n_t_mut -= 1
-                        continue;
+                        continue
                 # assert((ent[clear_class][clear_slot][0] != "Free") and (ent[clear_class][clear_slot][1] != "Refill"))
                 # if random.uniform(0,1) > self.__mut_chance_of(ent[clear_class][clear_slot][2]): continue 
                 ent[clear_class][clear_slot] = [ent[clear_class][clear_slot][0],"Refill",0]
@@ -323,7 +323,7 @@ class Optimizer:
                 # teachers, who don't teach during clear_slot
                 bored_teachers = list(copy.deepcopy(teachers))
                 for i in range(num_classes):
-                    if ent[i][refill_slot][0] != "Free":
+                    if ((ent[i][refill_slot][0] != "Free") and (ent[i][refill_slot][0] != "Refill")):
                         tai = ent[i][refill_slot][1] # teacher at i
                         if tai in bored_teachers:
                             bored_teachers.remove(tai)
@@ -462,12 +462,12 @@ class Optimizer:
                     if subject in prefered_subjects[teacher]:
                         score += prefered_subject_weight * 1
                         # Add Happyness to slot
-                        ent[i][j][2] = self.__new_happyness(ent[i][j][2],0.3)
-                        self.__change_avg_t_m(-0.001)
+                        ent[i][j][2] = self.__new_happyness(ent[i][j][2],0.01)
+                        self.__change_avg_t_m(-0.2)
                     else:
                         if subject != "Free" :
-                            ent[i][j][2] = self.__new_happyness(ent[i][j][2],-0.2)
-                            self.__change_avg_t_m(0.1)
+                            ent[i][j][2] = self.__new_happyness(ent[i][j][2],-0.05)
+                            self.__change_avg_t_m(0.05)
             # --------------------- Little gaps in class plans? -------------------
             for i in range(num_classes):
                 # for each day in the timetable
@@ -480,7 +480,7 @@ class Optimizer:
                     # Find latest slot having classes
                     while(ent[i][latest_slot][0] == "Free" and (earliest_slot < latest_slot)):
                         latest_slot -= 1
-                    self.__change_avg_c_m(-0.001)
+                    self.__change_avg_c_m(-0.1)
                     for j in range(earliest_slot,latest_slot):
                         if ent[i][j][0] == "Free":
                             # Remove Happyness
@@ -492,6 +492,68 @@ class Optimizer:
                     freelist = list(filter(lambda x: x[0] == "Free", relevant_part))
                     score -= len(freelist)
             # Cache score
+            # ------------------- rate collaborativeness -----------
+            cs = self.coll_subj
+            collabs = dict() #holds how many classes can collab for each coll_subj
+            for slot_pos in range(len(ent[0])):
+                # reset collabs
+                for subj in cs:
+                    collabs[subj] = 0
+                tot_collab = 0
+                # fill collabs
+                for class_pos in range(len(ent)):
+                    subj = ent[class_pos][slot_pos][0] 
+                    if subj in cs:
+                        collabs[subj] += 1
+                        tot_collab += 1
+                # Check if there are multiple collab subjects
+                has_colab = False
+                colab_conflict = False
+                for subj in collabs.keys():
+                    if (collabs[subj] != 0):
+                        if (has_colab):
+                            colab_conflict = True
+                        has_colab = True
+                if not has_colab : continue
+                # Rating
+                for class_pos in range(len(ent)):
+                    subj = ent[class_pos][slot_pos][0]
+                    # in case of conflict
+                    if colab_conflict:
+                        ent[class_pos][slot_pos][2] = self.__new_happyness(ent[class_pos][slot_pos][2], -0.02)
+                    if subj in cs:
+                        cn = collabs[subj]  # collab num
+                        if cn >= 2: 
+                            happy_val = min(cn, 5) * 0.02
+                            ent[class_pos][slot_pos][2] = self.__new_happyness(ent[class_pos][slot_pos][2], happy_val)
+                            score += 1
+                    else:
+                        ent[class_pos][slot_pos][2] = self.__new_happyness(ent[class_pos][slot_pos][2], -0.01)
+            # ----- Make early and late slots unhappy -------
+            floatscore = 0.0
+            for i in range(3):
+                happy_val = (3 - i)/3.0 * 0.1
+                for class_num in range(len(ent)):
+                    for day in range(5):
+                        early_slot = day * 10 + i
+                        late_slot = (day+1) * 10 - 1 - i 
+                        if ent[class_num][early_slot][0] == "Free":
+                            new_early_happ = self.__new_happyness(ent[class_num][early_slot][2],happy_val)
+                            ent[class_num][early_slot][2] = new_early_happ
+                            floatscore += 0.1 * (3-i)
+                        else:
+                            new_early_happ = self.__new_happyness(ent[class_num][early_slot][2],(-1) * happy_val)
+                            ent[class_num][early_slot][2] = new_early_happ
+                            floatscore += -0.1 * (3-i)
+                        if ent[class_num][late_slot][0] == "Free":
+                            new_late_happ = self.__new_happyness(ent[class_num][late_slot][2],happy_val)
+                            ent[class_num][late_slot][2] = new_late_happ
+                            floatscore += 0.1 * (3-i)
+                        else:
+                            new_late_happ = self.__new_happyness(ent[class_num][late_slot][2],(-1) * happy_val)
+                            ent[class_num][late_slot][2] = new_late_happ
+                            floatscore += -0.1 * (3-i)
+            score += int(floatscore)
             c_ent[1] = score
             return score
 
@@ -561,7 +623,7 @@ class Optimizer:
 
     def __pick_unhappy_free_slot(self,ent,class_num):
         min = sys.maxsize
-        max_slot_skip = 1
+        max_slot_skip = 5
         slot_pos = 0
         slot_num = random.randint(0,max_slot_skip)
         while slot_num < len(ent[class_num]):

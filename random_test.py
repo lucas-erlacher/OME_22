@@ -79,7 +79,7 @@ if __name__ == "__main__":
     print("Number of classes: " + str(num_classes))
     print("Number of subjects: " + str(num_subjects))
     print("Number of teachers: " + str(num_teachers))
-    num_gens = 20
+    num_gens = 100
     num_ents = 10
     print("------- Optimization parameters ----------")
     print("Number of generations: " + str(num_gens))
